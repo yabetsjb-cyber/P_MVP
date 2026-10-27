@@ -1,0 +1,27 @@
+# THIS PICE OF CODE STARTS A POSTGRESQL DATABASE WITH POSTGIS EXTENSION AND A REDIS CACHE USING DOCKER-COMPOSE
+
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: medfinder
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: medfinder
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medfinder"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
+  

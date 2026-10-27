@@ -1,0 +1,30 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "migrate": "node-pg-migrate up --envPath .env -m migrations",
+    "migrate:down": "node-pg-migrate down --envPath .env -m migrations",
+    "migrate:create": "node-pg-migrate create -m migrations --migration-file-language sql",
+    "seed": "tsx src/seed.ts",
+     "create-admin": "tsx src/scripts/create-admin.ts"	
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "fastify": "^5.12.7",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "node-pg-migrate": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

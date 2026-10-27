@@ -1,0 +1,7 @@
+-- Up Migration
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Down Migration
+DROP EXTENSION IF EXISTS pg_trgm;
+DROP EXTENSION IF EXISTS postgis;
