@@ -122,8 +122,9 @@ export async function adminRoutes(app: FastifyInstance) {
   // --- Reject (reason is shown to the owner) ---
   app.post('/v1/admin/pharmacies/:id/reject', { preHandler: guard }, async (req, reply) => {
     const params = parseBody(IdParams, req.params, reply);
+    if (!params) return;
     const body = parseBody(ReasonBody, req.body, reply);
-    if (!params || !body) return;
+    if (!body) return;
     const done = await changeStatus(req.user!.id, params.id, ['pending'], 'rejected', body.reason);
     if (!done) return reply.code(409).send({ error: 'INVALID_STATE' });
     return { pharmacy: done };
@@ -132,8 +133,9 @@ export async function adminRoutes(app: FastifyInstance) {
   // --- Suspend a verified pharmacy ---
   app.post('/v1/admin/pharmacies/:id/suspend', { preHandler: guard }, async (req, reply) => {
     const params = parseBody(IdParams, req.params, reply);
+    if (!params) return;
     const body = parseBody(ReasonBody, req.body, reply);
-    if (!params || !body) return;
+    if (!body) return;
     const done = await changeStatus(req.user!.id, params.id, ['verified'], 'suspended', body.reason);
     if (!done) return reply.code(409).send({ error: 'INVALID_STATE' });
     return { pharmacy: done };
