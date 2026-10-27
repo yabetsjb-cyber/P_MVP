@@ -54,3 +54,7 @@ export const requireRole =
       return reply.code(403).send({ error: 'FORBIDDEN' });
     }
   };
+// Must belong to a pharmacy. Use AFTER authenticate.
+export async function requirePharmacy(req: FastifyRequest, reply: FastifyReply) {
+  if (!req.user?.pharmacyId) return reply.code(409).send({ error: 'NO_PHARMACY' });
+}

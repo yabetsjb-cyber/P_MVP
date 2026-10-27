@@ -1,5 +1,6 @@
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { normalizeEthiopianPhone } from './phone';
 
 // Returns parsed data, or sends a 400 response and returns null
 export function parseBody<S extends z.ZodTypeAny>(
@@ -20,3 +21,15 @@ export function parseBody<S extends z.ZodTypeAny>(
   }
   return result.data;
 }
+
+export const requiredEthiopianPhone = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    const p = normalizeEthiopianPhone(v);
+    if (!p) {
+      ctx.addIssue({ code: 'custom', message: 'Invalid Ethiopian mobile number' });
+      return z.NEVER;
+    }
+    return p;
+  });
