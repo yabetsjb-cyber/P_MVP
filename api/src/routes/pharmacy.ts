@@ -9,6 +9,7 @@ import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
 import { parseBody, requiredEthiopianPhone } from '../lib/validate';
 import { sniffFileType } from '../lib/files';
 import { audit } from '../lib/audit';
+import '@fastify/multipart';
 
 const DOC_TYPES = ['pharmacy_license', 'trade_license', 'pharmacist_license'];
 

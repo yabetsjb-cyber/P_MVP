@@ -4,6 +4,11 @@
     "@fastify/multipart": "^10.1.6",
     "@fastify/rate-limit": "^11.2.1",
     "argon2": "^0.45.1",
+    "exceljs": "^4.4.0",
+    "papaparse": "^5.7.0",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.5.2"
   }
 }

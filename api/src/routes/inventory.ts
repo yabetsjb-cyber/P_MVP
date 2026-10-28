@@ -3,14 +3,13 @@ import { z } from 'zod';
 import { pool } from '../db';
 import { tx } from '../lib/tx';
 import { HttpError } from '../lib/errors';
-import { parse, priceEtb, quantity, gregorianFutureDate } from '../lib/validate';
+import { parse, quantity, gregorianFutureDate } from '../lib/validate';
 import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
 import { applyPatch, markOutOfStock, touchPharmacy } from '../services/inventory';
 
 const IdParams = z.object({ id: z.string().uuid() });
 
 const stockFields = {
-  priceEtb: priceEtb.optional(),
   quantity: quantity.optional(),                                  // set exact count
   addQuantity: z.number().int().min(1).max(100_000).optional(),   // refill
   expiryDate: gregorianFutureDate.optional(),
@@ -27,7 +26,6 @@ const PatchBody = z
 const AddBody = z
   .object({
     medicineId: z.string().uuid(),
-    priceEtb,
     quantity,
     expiryDate: gregorianFutureDate,
   })
@@ -39,7 +37,7 @@ const BulkItem = z
   .refine(exclusive, 'Send either quantity or addQuantity, not both')
   .refine((i) => !(i.outOfStock && (i.quantity !== undefined || i.addQuantity !== undefined)),
           'Send either outOfStock or a quantity change, not both')
-  .refine((i) => i.outOfStock || i.priceEtb !== undefined || i.quantity !== undefined ||
+  .refine((i) => i.outOfStock || i.quantity !== undefined ||
                  i.addQuantity !== undefined || i.expiryDate !== undefined, 'Nothing to update');
 
 const BulkBody = z
@@ -99,12 +97,12 @@ export async function inventoryRoutes(app: FastifyInstance) {
       if (!rowCount) throw new HttpError(404, 'MEDICINE_NOT_FOUND');
 
       const { rows: [row] } = await c.query(
-        `INSERT INTO inventory (pharmacy_id, medicine_id, price_etb, qty_on_hand, expiry_date, is_out_of_stock)
-         VALUES ($1, $2, $3, $4, $5, $4::int = 0)
+        `INSERT INTO inventory (pharmacy_id, medicine_id, qty_on_hand, expiry_date, is_out_of_stock)
+         VALUES ($1, $2, $3, $4, $3::int = 0)
          ON CONFLICT (pharmacy_id, medicine_id) DO NOTHING
-         RETURNING id, medicine_id, price_etb, qty_on_hand, qty_reserved,
+         RETURNING id, medicine_id, qty_on_hand, qty_reserved,
                    (qty_on_hand - qty_reserved) AS available, expiry_date, is_out_of_stock, updated_at`,
-        [pid, b.medicineId, b.priceEtb, b.quantity, b.expiryDate]
+        [pid, b.medicineId, b.quantity, b.expiryDate]
       );
       if (!row) {
         const { rows: [existing] } = await c.query(
@@ -125,7 +123,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
 
     const { rows } = await pool.query(
       `SELECT i.id, i.medicine_id, m.brand_name, m.generic_name, m.strength, m.pack_size, m.rx_status,
-              i.price_etb, i.qty_on_hand, i.qty_reserved,
+              i.qty_on_hand, i.qty_reserved,
               (i.qty_on_hand - i.qty_reserved) AS available,
               i.expiry_date, i.is_out_of_stock, i.updated_at,
               (i.expiry_date <= current_date + 60) AS expiring_soon,
@@ -145,7 +143,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
     return { total: rows[0] ? Number(rows[0].total) : 0, items: rows.map(({ total, ...r }) => r) };
   });
 
-  // --- Edit price / quantity / expiry, or refill ---
+  // --- Edit quantity / expiry, or refill ---
   app.patch('/v1/pharmacy/inventory/:id', { preHandler: member }, async (req) => {
     const { id } = parse(IdParams, req.params);
     const body = parse(PatchBody, req.body);

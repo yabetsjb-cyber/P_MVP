@@ -78,17 +78,17 @@ async function main() {
   for (const p of pharmacies) {
     for (const m of medIds) {
       if (rand() > 0.7) continue;
-      const price = Math.round(m.base * (0.85 + rand() * 0.3) * 100) / 100;
+     
       const qty = Math.floor(rand() * 80);                  // 0 to 79 (0 = out of stock)
       const expiryDays = rand() < 0.1 ? 20 : 90 + Math.floor(rand() * 700); // 10% expire soon
-      await pool.query(
-        `INSERT INTO inventory (pharmacy_id, medicine_id, price_etb, qty_on_hand, expiry_date, is_out_of_stock)
-         VALUES ($1,$2,$3,$4, current_date + $5::int, $4::int = 0)
-         ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
-           price_etb = EXCLUDED.price_etb, qty_on_hand = EXCLUDED.qty_on_hand,
-           expiry_date = EXCLUDED.expiry_date, is_out_of_stock = EXCLUDED.is_out_of_stock, updated_at = now()`,
-        [p.id, m.id, price, qty, expiryDays]
-      );
+  await pool.query(
+  `INSERT INTO inventory (pharmacy_id, medicine_id, qty_on_hand, expiry_date, is_out_of_stock)
+   VALUES ($1, $2, $3, current_date + $4::int, $3::int = 0)
+   ON CONFLICT (pharmacy_id, medicine_id) DO UPDATE SET
+     qty_on_hand = EXCLUDED.qty_on_hand, expiry_date = EXCLUDED.expiry_date,
+     is_out_of_stock = EXCLUDED.is_out_of_stock, updated_at = now()`,
+  [p.id, m.id, qty, expiryDays]
+);
       count++;
     }
   }

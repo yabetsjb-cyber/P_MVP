@@ -2,14 +2,13 @@ import type { PoolClient } from 'pg';
 import { HttpError } from '../lib/errors';
 
 export interface StockPatch {
-  priceEtb?: number;
   quantity?: number;      // set the exact count
   addQuantity?: number;   // refill: add N to what's on hand
   expiryDate?: string;    // YYYY-MM-DD
 }
 
 const RETURNING = `
-  RETURNING id, medicine_id, price_etb, qty_on_hand, qty_reserved,
+  RETURNING id, medicine_id, qty_on_hand, qty_reserved,
             (qty_on_hand - qty_reserved) AS available,
             expiry_date, is_out_of_stock, updated_at`;
 
@@ -31,18 +30,17 @@ export async function applyPatch(c: PoolClient, pharmacyId: string, id: string, 
 
   const { rows: [row] } = await c.query(
     `UPDATE inventory SET
-       price_etb   = COALESCE($2::numeric, price_etb),
-       qty_on_hand = CASE WHEN $3::int IS NOT NULL THEN $3::int
-                          WHEN $5::int IS NOT NULL THEN qty_on_hand + $5::int
+       qty_on_hand = CASE WHEN $2::int IS NOT NULL THEN $2::int
+                          WHEN $4::int IS NOT NULL THEN qty_on_hand + $4::int
                           ELSE qty_on_hand END,
-       expiry_date = COALESCE($4::date, expiry_date),
-       is_out_of_stock = CASE WHEN $3::int IS NOT NULL THEN $3::int = 0
-                              WHEN $5::int IS NOT NULL THEN false
+       expiry_date = COALESCE($3::date, expiry_date),
+       is_out_of_stock = CASE WHEN $2::int IS NOT NULL THEN $2::int = 0
+                              WHEN $4::int IS NOT NULL THEN false
                               ELSE is_out_of_stock END,
        updated_at  = now()
-     WHERE id = $1 AND pharmacy_id = $6
+     WHERE id = $1 AND pharmacy_id = $5
      ${RETURNING}`,
-    [id, p.priceEtb ?? null, p.quantity ?? null, p.expiryDate ?? null, p.addQuantity ?? null, pharmacyId]
+    [id, p.quantity ?? null, p.expiryDate ?? null, p.addQuantity ?? null, pharmacyId]
   );
   return row;
 }
