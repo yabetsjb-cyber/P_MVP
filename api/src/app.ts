@@ -10,6 +10,7 @@ import { pharmacyRoutes } from './routes/pharmacy';
 import { adminRoutes } from './routes/admin';
 import { inventoryRoutes } from './routes/inventory';
 import { importRoutes } from './routes/imports';
+import { catalogRequestRoutes } from './routes/catalogRequests';
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 1_000_000 });
@@ -50,6 +51,7 @@ export async function buildApp() {
   await app.register(adminRoutes);
   await app.register(inventoryRoutes);
   await app.register(importRoutes); 
+  await app.register(catalogRequestRoutes);
 
   return app;
 }

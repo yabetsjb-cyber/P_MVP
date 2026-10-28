@@ -44,11 +44,19 @@ export async function createPreview(
 
   return tx(async (c) => {
     // 2) Find catalog matches for ALL rows in one query
-    const { rows: meds } = keys.length
-      ? await c.query('SELECT id, match_key, rx_status FROM medicines WHERE match_key = ANY($1::text[])', [keys])
+       const { rows: meds } = keys.length
+      ? await c.query(
+          `SELECT id, match_key, rx_status, 1 AS pri FROM medicines WHERE match_key = ANY($1::text[])
+           UNION ALL
+           SELECT m.id, a.match_key, m.rx_status, 0 AS pri
+             FROM medicine_aliases a JOIN medicines m ON m.id = a.medicine_id
+            WHERE a.match_key = ANY($1::text[])`,
+          [keys])
       : { rows: [] as any[] };
-    const byKey = new Map<string, any>(meds.map((m: any) => [m.match_key, m]));
-
+    // Aliases are added first and real catalog keys last, so a real key always wins
+    const byKey = new Map<string, any>(
+      [...meds].sort((a: any, b: any) => a.pri - b.pri).map((m: any) => [m.match_key, m])
+    );
     // 3) Build one record per row
     const records: RowRecord[] = [];
     const firstRowForMedicine = new Map<string, number>();
