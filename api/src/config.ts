@@ -36,4 +36,10 @@ export const config = {
     maxReservable: 10,         // most units one reservation can ask for
     confidentMatch: 0.45,      // below this the query is treated as an unknown name
   },
+
+    reservation: {
+    respondMinutes: 15,        // how long the pharmacy has to answer a request
+    pickupHours: 2,            // time to collect after the pharmacy confirms (used in 9c)
+    maxActivePerCustomer: 2,
+  },
 };

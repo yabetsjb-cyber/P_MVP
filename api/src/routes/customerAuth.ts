@@ -9,6 +9,7 @@ import { audit } from '../lib/audit';
 import { newToken, hashToken } from '../lib/security';
 import { parse, optionalEthiopianPhone } from '../lib/validate';
 import { authenticateCustomer } from '../plugins/customerAuth';
+import { cancelAllActiveForCustomer } from '../services/reservations';
 
 // For unknown emails we still verify against this, so login takes the same time either way
 const dummyHash = argon2.hash('not-a-real-password');
@@ -167,6 +168,7 @@ export async function customerAuthRoutes(app: FastifyInstance) {
         if (!ok) throw new HttpError(403, 'WRONG_PASSWORD');
 
         await c.query('DELETE FROM customer_sessions WHERE customer_id = $1', [id]);
+                const cancelled = await cancelAllActiveForCustomer(c, id);
         // The row stays (reservation history will point at it) but holds no personal data
         await c.query(
           `UPDATE customers
@@ -176,7 +178,7 @@ export async function customerAuthRoutes(app: FastifyInstance) {
             WHERE id = $1`,
           [id]
         );
-        await audit(c, null, 'customer.deleted', 'customer', id);
+                await audit(c, null, 'customer.deleted', 'customer', id, { cancelledReservations: cancelled });
       });
       return { deleted: true };
     }

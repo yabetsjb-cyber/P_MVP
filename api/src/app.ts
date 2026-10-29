@@ -13,6 +13,8 @@ import { importRoutes } from './routes/imports';
 import { catalogRequestRoutes } from './routes/catalogRequests';
 import { searchRoutes } from './routes/search';
 import { customerAuthRoutes } from './routes/customerAuth';
+import { customerReservationRoutes } from './routes/customerReservations';
+
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 1_000_000 });
 
@@ -55,6 +57,7 @@ export async function buildApp() {
   await app.register(catalogRequestRoutes);
   await app.register(searchRoutes);
   await app.register(customerAuthRoutes);
+  await app.register(customerReservationRoutes);
 
   return app;
 }
