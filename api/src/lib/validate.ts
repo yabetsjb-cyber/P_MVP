@@ -65,3 +65,19 @@ export const gregorianFutureDate = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD (Gregorian, as printed on the pack)')
   .refine(isRealDate, 'Not a real date')
   .refine((d) => Date.parse(d) > Date.now(), 'Already expired');
+
+  export const optionalEthiopianPhone = z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((v, ctx) => {
+    if (v === undefined) return undefined;
+    if (v === null || v === '') return null;
+    const p = normalizeEthiopianPhone(v);
+    if (!p) {
+      ctx.addIssue({ code: 'custom', message: 'Invalid Ethiopian mobile number' });
+      return z.NEVER;
+    }
+    return p;
+  });

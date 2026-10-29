@@ -17,6 +17,7 @@ export const config = {
   port: Number(process.env.PORT ?? 3000),
   cookieName: 'sid',
   sessionDays: 7,
+  customerSessionDays: 30,
   allowedOrigins: (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3001')
     .split(',')
     .map((s) => s.trim()),
