@@ -6,6 +6,7 @@ import { config } from '../config';
 import { HttpError } from '../lib/errors';
 import { addEvent, releaseHold } from './reservations';
 import { markOutOfStock, touchPharmacy } from './inventory';
+import { notifyReservation } from './notifications';
 
 const R = config.reservation;
 
@@ -177,6 +178,7 @@ export async function confirmReservation(
       [id, holdMinutes ?? R.pickupHours * 60]
     );
     await addEvent(c, id, 'confirmed', 'pharmacy', userId);
+    await notifyReservation(c, id, 'confirmed');
     return viewById(c, id);
   });
 }
@@ -196,6 +198,7 @@ export async function declineReservation(
       note: b.note ? `${b.reason}: ${b.note}` : b.reason,
     });
 
+    await notifyReservation(c, id, 'declined'); 
     // "Out of stock" means our numbers were wrong: fix them so nobody else is sent here
     let markedOutOfStock = false;
     if (b.reason === 'out_of_stock' && b.alsoMarkOutOfStock !== false) {

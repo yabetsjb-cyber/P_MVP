@@ -15,6 +15,9 @@ import { searchRoutes } from './routes/search';
 import { customerAuthRoutes } from './routes/customerAuth';
 import { customerReservationRoutes } from './routes/customerReservations';
 import { pharmacyReservationRoutes } from './routes/pharmacyReservations';
+import { customerNotificationRoutes } from './routes/customerNotifications';
+import { pharmacyTelegramRoutes } from './routes/pharmacyTelegram';
+import { devRoutes } from './routes/devTools';
 
 
 
@@ -62,6 +65,9 @@ export async function buildApp() {
   await app.register(customerAuthRoutes);
   await app.register(customerReservationRoutes);
   await app.register(pharmacyReservationRoutes);
+  await app.register(customerNotificationRoutes);
+  await app.register(pharmacyTelegramRoutes);
+  await app.register(devRoutes);
 
   return app;
 }

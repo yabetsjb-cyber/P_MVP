@@ -169,6 +169,8 @@ export async function customerAuthRoutes(app: FastifyInstance) {
 
         await c.query('DELETE FROM customer_sessions WHERE customer_id = $1', [id]);
                 const cancelled = await cancelAllActiveForCustomer(c, id);
+        await c.query('DELETE FROM push_tokens WHERE customer_id = $1', [id]);
+        await c.query('DELETE FROM notifications WHERE customer_id = $1', [id]);
         // The row stays (reservation history will point at it) but holds no personal data
         await c.query(
           `UPDATE customers

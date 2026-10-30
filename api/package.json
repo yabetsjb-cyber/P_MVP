@@ -9,7 +9,8 @@
     "migrate:down": "node-pg-migrate down --envPath .env -m migrations",
     "migrate:create": "node-pg-migrate create -m migrations --migration-file-language sql",
     "seed": "tsx src/seed.ts",
-     "create-admin": "tsx src/scripts/create-admin.ts"	
+     "create-admin": "tsx src/scripts/create-admin.ts",
+     "worker": "tsx watch src/worker.ts"	
   },
   "keywords": [],
   "author": "",

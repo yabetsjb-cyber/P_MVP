@@ -42,4 +42,16 @@ export const config = {
     pickupHours: 2,            // time to collect after the pharmacy confirms (used in 9c)
     maxActivePerCustomer: 2,
   },
+
+    telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
+    botUsername: (process.env.TELEGRAM_BOT_USERNAME ?? '').replace(/^@/, ''),
+    maxLinksPerPharmacy: 5,
+    linkTokenMinutes: 10,
+  },
+
+  push: {
+    provider: process.env.PUSH_PROVIDER ?? 'console',          // 'console' or 'fcm'
+    fcmServiceAccountFile: process.env.FCM_SERVICE_ACCOUNT_FILE ?? '',
+  },
 };

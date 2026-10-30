@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import { tx } from '../lib/tx';
 import { config } from '../config';
 import { HttpError } from '../lib/errors';
+import { notifyReservation } from './notifications';
 
 const R = config.reservation;
 const S = config.search;
@@ -75,6 +76,7 @@ async function createOnce(c: PoolClient, customerId: string, input: CreateInput,
   if (cust.suspended_until && new Date(cust.suspended_until) > new Date()) {
     throw new HttpError(403, 'ACCOUNT_SUSPENDED', { until: cust.suspended_until });
   }
+  
 
   // 2) Already reserved this item? Return the existing reservation (also makes retries safe)
   const { rows: [dup] } = await c.query(
@@ -131,6 +133,7 @@ async function createOnce(c: PoolClient, customerId: string, input: CreateInput,
     [code, customerId, inv.pharmacy_id, inv.id, inv.medicine_id, input.qty, inv.rx_status === 'RX', R.respondMinutes]);
 
   await addEvent(c, r.id, 'requested', 'customer', customerId);
+  await notifyReservation(c, r.id, 'requested');  
 
   const { rows: [view] } = await c.query(`${VIEW_SQL} WHERE r.id = $1`, [r.id]);
   return reservationView(view);
@@ -189,7 +192,7 @@ export async function cancelMine(customerId: string, id: string) {
       `UPDATE reservations SET status = 'cancelled', closed_at = now(), closed_reason = 'customer_cancelled'
         WHERE id = $1`, [id]);
     await addEvent(c, id, 'cancelled', 'customer', customerId);
-
+    await notifyReservation(c, id, 'cancelled_by_customer');
     const { rows: [view] } = await c.query(`${VIEW_SQL} WHERE r.id = $1`, [id]);
     return reservationView(view);
   });
@@ -208,6 +211,7 @@ export async function cancelAllActiveForCustomer(c: PoolClient, customerId: stri
       `UPDATE reservations SET status = 'cancelled', closed_at = now(), closed_reason = $2 WHERE id = $1`,
       [r.id, reason]);
     await addEvent(c, r.id, 'cancelled', 'customer', customerId, 'account deleted');
+    await notifyReservation(c, r.id, 'cancelled_by_customer');  
   }
   return rows.length;
 }
