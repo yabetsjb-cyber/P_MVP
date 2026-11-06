@@ -18,7 +18,7 @@ const clock = (d: Date | string) =>
   new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Addis_Ababa' });
 
 // Inbox row + one push delivery per registered device
-async function toCustomer(c: PoolClient, customerId: string, reservationId: string, type: string, msg: Msg, data: object) {
+async function toCustomer(c: PoolClient, customerId: string, reservationId: string | null, type: string, msg: Msg, data: object) {
   const { rows: [n] } = await c.query(
     `INSERT INTO notifications (recipient_type, customer_id, reservation_id, type, title, body, data)
      VALUES ('customer', $1, $2, $3, $4, $5, $6) RETURNING id`,
@@ -132,4 +132,20 @@ export async function notifyPharmacyTest(c: PoolClient, pharmacyId: string) {
     body: 'Alerts are working.',
     telegram: '✅ Test alert: reservation alerts are working for your pharmacy.',
   }, {});
+
+
+  
 }
+
+// Sent when repeated no-shows pause a customer's reservations
+export async function notifyCustomerSuspended(c: PoolClient, customerId: string, until: Date | string) {
+  const day = new Date(until).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Addis_Ababa',
+  });
+  await toCustomer(c, customerId, null, 'account_suspended', {
+    title: 'Reservations paused',
+    body: `Several reservations were not collected, so you can't reserve until ${day}. Please reserve only when you can collect.`,
+    push: { title: 'Reservations paused', body: 'Open the app for details.' },
+  }, { until });
+}
+

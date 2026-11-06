@@ -1,6 +1,7 @@
 import { pool } from './db';
 import { runDeliveryLoop } from './services/deliveries';
 import { runTelegramBot } from './services/telegramBot';
+import { runMaintenanceLoop } from './services/maintenance';
 
 let stopping = false;
 const shouldStop = () => stopping;
@@ -15,7 +16,11 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 
 async function main() {
   console.log('Worker started');
-  await Promise.all([runDeliveryLoop(shouldStop), runTelegramBot(shouldStop)]);
+  await Promise.all([
+    runDeliveryLoop(shouldStop),
+    runTelegramBot(shouldStop),
+    runMaintenanceLoop(shouldStop),
+  ]);
   await pool.end();
   console.log('Worker stopped');
 }

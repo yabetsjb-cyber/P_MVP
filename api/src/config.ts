@@ -38,10 +38,20 @@ export const config = {
   },
 
     reservation: {
-    respondMinutes: 15,        // how long the pharmacy has to answer a request
-    pickupHours: 2,            // time to collect after the pharmacy confirms (used in 9c)
-    maxActivePerCustomer: 2,
+
+    respondMinutes: 10,        // how long the pharmacy has to answer a request
+    pickupHours: 20,            // time to collect after the pharmacy confirms
+    maxActivePerCustomer: 4,
+    pickupGraceMinutes: 10,    // a late customer is not a no-show until this much later
+    sweepSeconds: Number(process.env.SWEEP_SECONDS ?? 30),   // how often the worker looks for overdue reservations
+
   },
+
+  // 3 uncollected reservations within 30 days pauses reserving for 7 days
+  noShow: { windowDays: 30, strikesToSuspend: 3, suspendDays: 7 },
+
+  // How long old data is kept before the cleanup job deletes it
+  retention: { notificationsDays: 90, deliveriesDays: 30, searchEventsDays: 395, importRowsDays: 30 },
 
     telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
