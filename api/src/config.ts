@@ -39,9 +39,9 @@ export const config = {
 
     reservation: {
 
-    respondMinutes: 10,        // how long the pharmacy has to answer a request
-    pickupHours: 20,            // time to collect after the pharmacy confirms
-    maxActivePerCustomer: 4,
+    respondMinutes: 20,        // how long the pharmacy has to answer a request
+    pickupHours: 2,            // time to collect after the pharmacy confirms
+    maxActivePerCustomer: 2,
     pickupGraceMinutes: 10,    // a late customer is not a no-show until this much later
     sweepSeconds: Number(process.env.SWEEP_SECONDS ?? 30),   // how often the worker looks for overdue reservations
 

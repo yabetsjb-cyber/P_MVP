@@ -18,19 +18,27 @@ import { pharmacyReservationRoutes } from './routes/pharmacyReservations';
 import { customerNotificationRoutes } from './routes/customerNotifications';
 import { pharmacyTelegramRoutes } from './routes/pharmacyTelegram';
 import { devRoutes } from './routes/devTools';
-
+import cors from '@fastify/cors';
+import { metaRoutes } from './routes/meta';
 
 
 export async function buildApp() {
   const app = Fastify({ logger: true, bodyLimit: 1_000_000 });
-
+    await app.register(cors, {
+    origin: config.allowedOrigins,                 // exact matches only, never "*"
+    credentials: true,                             // lets the dashboard's session cookie travel
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Retry-After'],               // so the browser can read it on a 429
+    maxAge: 600,                                   // browsers may cache the preflight answer for 10 minutes
+  });
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5 } });
 
   // Our own errors become clean JSON. Anything unexpected is logged in full
   // but the client only sees a generic message (no internals leaked).
-  app.setErrorHandler((err: any, req, reply) => {
+    app.setErrorHandler((err: any, req, reply) => {
     if (err instanceof HttpError) {
       return reply.code(err.status).send({ error: err.code, ...err.extra });
     }
@@ -39,9 +47,14 @@ export async function buildApp() {
       req.log.error(err);
       return reply.code(500).send({ error: 'INTERNAL' });
     }
+    if (status === 429) return reply.code(429).send({ error: 'RATE_LIMITED' });
+    if (typeof err.code === 'string' && err.code.startsWith('FST_ERR_CTP')) {
+      return reply.code(status).send({ error: 'INVALID_BODY' });   // malformed or empty JSON, wrong content type
+    }
     return reply.code(status).send({ error: err.code ?? err.message });
   });
 
+  app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'ROUTE_NOT_FOUND' }));
   app.addHook('onRequest', async (req, reply) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return;
     const origin = req.headers.origin;
@@ -68,6 +81,7 @@ export async function buildApp() {
   await app.register(customerNotificationRoutes);
   await app.register(pharmacyTelegramRoutes);
   await app.register(devRoutes);
+  await app.register(metaRoutes);
 
   return app;
 }
