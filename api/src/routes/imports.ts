@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { pool } from '../db';
 import { HttpError } from '../lib/errors';
 import { parse } from '../lib/validate';
-import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
+import { authenticate, requireRole, requirePharmacy, member } from '../plugins/auth';
 import { createPreview, commitImport } from '../services/imports';
 import '@fastify/multipart';
 
@@ -24,7 +24,6 @@ const CommitBody = z
   .strict();
 
 export async function importRoutes(app: FastifyInstance) {
-  const member = [authenticate, requireRole('pharmacy_owner', 'pharmacy_staff'), requirePharmacy];
 
   // --- Download the template ---
   app.get('/v1/pharmacy/imports/template.csv', { preHandler: member }, async (_req, reply) => {

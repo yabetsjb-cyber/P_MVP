@@ -5,7 +5,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { pool } from '../db';
 import { config } from '../config';
-import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
+import { authenticate, requireRole, requirePharmacy, member } from '../plugins/auth';
 import { parseBody, requiredEthiopianPhone } from '../lib/validate';
 import { sniffFileType } from '../lib/files';
 import { audit } from '../lib/audit';
@@ -31,7 +31,6 @@ const RegisterPharmacyBody = z.object({
 
 export async function pharmacyRoutes(app: FastifyInstance) {
   const owner = [authenticate, requireRole('pharmacy_owner')];
-  const member = [authenticate, requireRole('pharmacy_owner', 'pharmacy_staff'), requirePharmacy];
 
   // --- Register my pharmacy (creates it as 'pending') ---
   app.post('/v1/pharmacy/register', { preHandler: owner }, async (req, reply) => {

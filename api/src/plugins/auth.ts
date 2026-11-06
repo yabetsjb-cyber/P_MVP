@@ -13,6 +13,8 @@ export interface AuthUser {
   pharmacyId: string | null;
 }
 
+
+
 declare module 'fastify' {
   interface FastifyRequest {
     user?: AuthUser;
@@ -58,3 +60,12 @@ export const requireRole =
 export async function requirePharmacy(req: FastifyRequest, reply: FastifyReply) {
   if (!req.user?.pharmacyId) return reply.code(409).send({ error: 'NO_PHARMACY' });
 }
+
+// The standard guard for any endpoint that needs a pharmacy-bound member.
+// authenticate → role check → pharmacy binding check, in that order.
+// Export this instead of duplicating the array in every route file.
+export const member = [
+  authenticate,
+  requireRole('pharmacy_owner', 'pharmacy_staff'),
+  requirePharmacy,
+];

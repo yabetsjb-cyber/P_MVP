@@ -6,13 +6,12 @@ import { config } from '../config';
 import { HttpError } from '../lib/errors';
 import { parse } from '../lib/validate';
 import { newToken, hashToken } from '../lib/security';
-import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
+import { authenticate, requireRole, requirePharmacy, member } from '../plugins/auth';
 import { notifyPharmacyTest } from '../services/notifications';
 
 const ChatParams = z.object({ chatId: z.string().regex(/^-?\d{1,18}$/) });
 
 export async function pharmacyTelegramRoutes(app: FastifyInstance) {
-  const member = [authenticate, requireRole('pharmacy_owner', 'pharmacy_staff'), requirePharmacy];
 
   // --- Step 1 of linking: get a one-time link (send no request body) ---
   app.post(

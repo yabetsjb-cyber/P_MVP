@@ -4,7 +4,7 @@ import { pool } from '../db';
 import { tx } from '../lib/tx';
 import { HttpError } from '../lib/errors';
 import { parse } from '../lib/validate';
-import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
+import { authenticate, requireRole, requirePharmacy, member } from '../plugins/auth';
 import {
   RequestBody, FromImportBody, ApproveBody, MergeBody, RejectBody,
   requestSingle, requestFromImport, approveRequest, mergeRequest, rejectRequest,
@@ -23,7 +23,6 @@ const SearchQuery = z.object({
 });
 
 export async function catalogRequestRoutes(app: FastifyInstance) {
-  const member = [authenticate, requireRole('pharmacy_owner', 'pharmacy_staff'), requirePharmacy];
   const admin = [authenticate, requireRole('platform_admin')];
 
   // ================= Pharmacy =================

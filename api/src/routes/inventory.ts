@@ -4,7 +4,7 @@ import { pool } from '../db';
 import { tx } from '../lib/tx';
 import { HttpError } from '../lib/errors';
 import { parse, quantity, gregorianFutureDate } from '../lib/validate';
-import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
+import { authenticate, requireRole, requirePharmacy, member } from '../plugins/auth';
 import { applyPatch, markOutOfStock, touchPharmacy } from '../services/inventory';
 
 const IdParams = z.object({ id: z.string().uuid() });
@@ -63,7 +63,6 @@ const CatalogQuery = z.object({
 });
 
 export async function inventoryRoutes(app: FastifyInstance) {
-  const member = [authenticate, requireRole('pharmacy_owner', 'pharmacy_staff'), requirePharmacy];
 
   // --- Find a product in the master catalog (typo tolerant) ---
   app.get('/v1/pharmacy/catalog', { preHandler: member }, async (req) => {

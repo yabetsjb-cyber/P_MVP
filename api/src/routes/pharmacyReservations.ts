@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { parse } from '../lib/validate';
-import { authenticate, requireRole, requirePharmacy } from '../plugins/auth';
+import { authenticate, requireRole, requirePharmacy, member } from '../plugins/auth';
 import {
   ConfirmBody, DeclineBody, CodeBody,
   listForPharmacy, summaryForPharmacy, lookupByCode,
@@ -16,7 +16,6 @@ const ListQuery = z.object({
 });
 
 export async function pharmacyReservationRoutes(app: FastifyInstance) {
-  const member = [authenticate, requireRole('pharmacy_owner', 'pharmacy_staff'), requirePharmacy];
   const counter = { preHandler: member, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } };
 
   // --- Dashboard badge: poll this every ~10 seconds ---
