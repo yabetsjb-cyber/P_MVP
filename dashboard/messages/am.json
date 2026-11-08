@@ -20,6 +20,20 @@
     "rateLimited": "ብዙ የመግቢያ ሙከራዎች። በ{seconds} ሰከንድ ውስጥ ይሞክሩ።",
     "logout": "ውጣ"
   },
+  "register": {
+  "title": "መለያ ይክፈቱ",
+  "subtitle": "ከደንበኞች ቦታ ማስያዣ ለመቀበል ፋርማሲዎን ይመዝግቡ",
+  "fullName": "ስምዎ",
+  "email": "ኢሜይል",
+  "password": "የይለፍ ቃል",
+  "passwordHint": "ቢያንስ 10 ፊደሎች",
+  "phone": "ስልክ (አማራጭ)",
+  "phoneHint": "የኢትዮጵያ ሞባይል ቁጥር ለምሳሌ 0911234567",
+  "createAccount": "መለያ ክፈት",
+  "creatingAccount": "በመክፈት ላይ…",
+  "haveAccount": "መለያ አለዎት?",
+  "emailInUse": "ይህ ኢሜይል አስቀድሞ ተመዝግቧል።"
+},
   "verification": {
     "pendingTitle": "ማረጋገጫ በሂደት ላይ",
     "pendingBody": "አስተዳዳሪ ፋርማሲዎን በመገምገም ላይ ነው። ሲረጋገጥ ይነገርዎታል።",

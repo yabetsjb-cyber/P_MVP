@@ -20,6 +20,21 @@
     "rateLimited": "Too many sign-in attempts. Try again in {seconds}s.",
     "logout": "Sign out"
   },
+
+  "register": {
+  "title": "Create an account",
+  "subtitle": "Register your pharmacy to receive reservations from customers",
+  "fullName": "Your name",
+  "email": "Email",
+  "password": "Password",
+  "passwordHint": "At least 10 characters",
+  "phone": "Phone (optional)",
+  "phoneHint": "Ethiopian mobile, e.g. 0911234567",
+  "createAccount": "Create account",
+  "creatingAccount": "Creating…",
+  "haveAccount": "Already have an account?",
+  "emailInUse": "This email is already registered."
+},
   "verification": {
     "pendingTitle": "Verification in progress",
     "pendingBody": "An administrator is reviewing your pharmacy. You'll be notified when it is verified.",
