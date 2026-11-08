@@ -1,0 +1,91 @@
+{
+  "common": {
+    "appName": "MedFinder",
+    "loading": "በመጫን ላይ…",
+    "retry": "እንደገና ይሞክሩ",
+    "cancel": "ተወው",
+    "save": "አስቀምጥ",
+    "close": "ዝጋ",
+    "back": "ተመለስ",
+    "offline": "ከመስመር ውጭ ነዎት።"
+  },
+  "auth": {
+    "loginTitle": "ይግቡ",
+    "loginSubtitle": "ፋርማሲዎን በ MedFinder ላይ ለማስተዳደር ይግቡ",
+    "email": "ኢሜይል",
+    "password": "የይለፍ ቃል",
+    "signIn": "ይግቡ",
+    "signingIn": "በመግባት ላይ…",
+    "invalidCredentials": "ኢሜይል ወይም የይለፍ ቃል ትክክል አይደለም።",
+    "rateLimited": "ብዙ የመግቢያ ሙከራዎች። በ{seconds} ሰከንድ ውስጥ ይሞክሩ።",
+    "logout": "ውጣ"
+  },
+  "verification": {
+    "pendingTitle": "ማረጋገጫ በሂደት ላይ",
+    "pendingBody": "አስተዳዳሪ ፋርማሲዎን በመገምገም ላይ ነው። ሲረጋገጥ ይነገርዎታል።",
+    "suspendedTitle": "መለያ ታግዷል",
+    "suspendedBody": "እገዳውን ለመፍታት ድጋፍን ያግኙ።",
+    "suspendedReason": "ምክንያት፡ {reason}"
+  },
+  "nav": {
+    "reservations": "ቦታ ማስያዣዎች",
+    "stock": "ክምችት",
+    "import": "አስመጣ",
+    "settings": "ቅንብሮች",
+    "telegram": "ቴሌግራም"
+  },
+  "reservations": {
+    "title": "ቦታ ማስያዣዎች",
+    "tabNew": "አዲስ",
+    "tabActive": "ንቁ",
+    "emptyNew": "አዲስ ቦታ ማስያዣ የለም።",
+    "emptyActive": "ንቁ ቦታ ማስያዣ የለም።",
+    "confirm": "አረጋግጥ",
+    "decline": "አትቀበል",
+    "pickup": "ተወስዷል",
+    "lookup": "በኮድ ፈልግ",
+    "enableSound": "ድምጽ አንቃ",
+    "soundOn": "ድምጽ በርቷል",
+    "from": "ከ",
+    "pickupBy": "እስከ {date} ይውሰዱ",
+    "confirmTitle": "ይህን ቦታ ማስያዣ ያረጋግጡ",
+    "pickupTime": "የመውሰጃ ጊዜ ያበቃል",
+    "declineReason": "ያልተቀበሉበት ምክንያት",
+    "codeLabel": "የ6 ፊደል ኮድ",
+    "codeInvalid": "ከደንበኛው የተቀበሉትን የ6 ፊደል ኮድ ያስገቡ።"
+  },
+  "stock": {
+    "title": "ክምችት",
+    "empty": "እስካሁን ክምችት የለም። የመጀመሪያ ንጥል ያክሉ ወይም CSV ያስመጡ።",
+    "search": "በስም፣ በአጠቃላይ ስም ወይም በጥንካሬ ይፈልጉ",
+    "columns": {
+      "medicine": "መድኃኒት",
+      "qtyOnHand": "በእጅ",
+      "qtyReserved": "የተያዘ",
+      "price": "ዋጋ (ብር)",
+      "expiry": "የሚያበቃበት",
+      "updated": "የተሻሻለ",
+      "actions": "ተግባሮች"
+    },
+    "markOut": "ከክምችት ውጪ",
+    "edit": "አስተካክል",
+    "lowStock": "ዝቅተኛ"
+  },
+  "settings": {
+    "title": "ቅንብሮች",
+    "telegramTitle": "ቴሌግራም",
+    "telegramNotConnected": "አልተገናኘም",
+    "telegramConnected": "ተገናኝቷል",
+    "telegramConnect": "ቴሌግራም አገናኝ",
+    "telegramDisconnect": "አቋርጥ",
+    "telegramInstructions": "ቴሌግራም ከፍተው Start ይጫኑ። ይህ ገጽ በራሱ ይዘምናል።",
+    "telegramExpired": "ይህ አገናኝ አልፏል። እንደገና ይሞክሩ።"
+  },
+  "errors": {
+    "forbidden": "ይህን ለማድረግ ፈቃድ የለዎትም።",
+    "notFound": "አልተገኘም።",
+    "validation": "እባክዎ የተለዩትን መስኮች ያስተካክሉ።",
+    "server": "የተሳሳተ ነገር ተከስቷል። እንደገና ይሞክሩ።",
+    "network": "ከመስመር ውጭ ይመስላሉ።"
+  }
+}

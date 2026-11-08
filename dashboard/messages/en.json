@@ -1,0 +1,91 @@
+{
+  "common": {
+    "appName": "MedFinder",
+    "loading": "Loading…",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "offline": "You are offline."
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Sign in to manage your pharmacy on MedFinder",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "invalidCredentials": "Email or password is incorrect.",
+    "rateLimited": "Too many sign-in attempts. Try again in {seconds}s.",
+    "logout": "Sign out"
+  },
+  "verification": {
+    "pendingTitle": "Verification in progress",
+    "pendingBody": "An administrator is reviewing your pharmacy. You'll be notified when it is verified.",
+    "suspendedTitle": "Account suspended",
+    "suspendedBody": "Contact support to resolve the suspension.",
+    "suspendedReason": "Reason: {reason}"
+  },
+  "nav": {
+    "reservations": "Reservations",
+    "stock": "Stock",
+    "import": "Import",
+    "settings": "Settings",
+    "telegram": "Telegram"
+  },
+  "reservations": {
+    "title": "Reservations",
+    "tabNew": "New",
+    "tabActive": "Active",
+    "emptyNew": "No new reservations.",
+    "emptyActive": "No active reservations.",
+    "confirm": "Confirm",
+    "decline": "Decline",
+    "pickup": "Mark picked up",
+    "lookup": "Look up by code",
+    "enableSound": "Enable sound",
+    "soundOn": "Sound is on",
+    "from": "From",
+    "pickupBy": "Pickup by {date}",
+    "confirmTitle": "Confirm this reservation",
+    "pickupTime": "Pickup window ends at",
+    "declineReason": "Reason for declining",
+    "codeLabel": "6-character code",
+    "codeInvalid": "Enter the 6-character code from the customer."
+  },
+  "stock": {
+    "title": "Stock",
+    "empty": "No items in stock yet. Add your first item or import a CSV.",
+    "search": "Search by brand, generic, or strength",
+    "columns": {
+      "medicine": "Medicine",
+      "qtyOnHand": "On hand",
+      "qtyReserved": "Reserved",
+      "price": "Price (ETB)",
+      "expiry": "Expires",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "markOut": "Mark out of stock",
+    "edit": "Edit",
+    "lowStock": "Low"
+  },
+  "settings": {
+    "title": "Settings",
+    "telegramTitle": "Telegram",
+    "telegramNotConnected": "Not connected",
+    "telegramConnected": "Connected",
+    "telegramConnect": "Connect Telegram",
+    "telegramDisconnect": "Disconnect",
+    "telegramInstructions": "Open Telegram and tap Start. This page will update automatically.",
+    "telegramExpired": "This link has expired. Try again."
+  },
+  "errors": {
+    "forbidden": "You do not have permission to do that.",
+    "notFound": "Not found.",
+    "validation": "Please check the highlighted fields.",
+    "server": "Something went wrong. Try again.",
+    "network": "You appear to be offline."
+  }
+}
