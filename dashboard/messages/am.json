@@ -34,6 +34,22 @@
   "haveAccount": "መለያ አለዎት?",
   "emailInUse": "ይህ ኢሜይል አስቀድሞ ተመዝግቧል።"
 },
+"createPharmacy": {
+  "title": "ስለ ፋርማሲዎ ይንገሩን",
+  "subtitle": "ፋርማሲዎ በፍለጋ ውጤቶች ከመታየቱ በፊት ፈቃድዎን እናረጋግጣለን።",
+  "name": "የፋርማሲ ስም",
+  "licenseNo": "የፈቃድ ቁጥር",
+  "licenseExpiresOn": "የፈቃድ ማብቂያ ቀን",
+  "licenseExpiresHint": "በEFDA ፈቃድዎ ላይ የተጻፈውን ቀን ይጠቀሙ።",
+  "phone": "የፋርማሲ ስልክ",
+  "phoneHint": "የኢትዮጵያ ሞባይል ቁጥር ለምሳሌ 0911234567",
+  "address": "የመንገድ አድራሻ (አማራጭ)",
+  "subcity": "ክፍለ ከተማ (አማራጭ)",
+  "locationNote": "ከማረጋገጫ በኋላ ትክክለኛ አካባቢዎን ቡድናችን ያረጋግጣል።",
+  "submit": "ለማረጋገጫ አስገባ",
+  "submitting": "በማስገባት ላይ…",
+  "licenseInUse": "ይህ ፈቃድ አስቀድሞ ተመዝግቧል።"
+},
   "verification": {
     "pendingTitle": "ማረጋገጫ በሂደት ላይ",
     "pendingBody": "አስተዳዳሪ ፋርማሲዎን በመገምገም ላይ ነው። ሲረጋገጥ ይነገርዎታል።",

@@ -35,6 +35,22 @@
   "haveAccount": "Already have an account?",
   "emailInUse": "This email is already registered."
 },
+"createPharmacy": {
+  "title": "Tell us about your pharmacy",
+  "subtitle": "We'll verify your license before your pharmacy appears in search results.",
+  "name": "Pharmacy name",
+  "licenseNo": "License number",
+  "licenseExpiresOn": "License expiry date",
+  "licenseExpiresHint": "Use the date printed on your EFDA license.",
+  "phone": "Pharmacy phone",
+  "phoneHint": "Ethiopian mobile, e.g. 0911234567",
+  "address": "Street address (optional)",
+  "subcity": "Subcity (optional)",
+  "locationNote": "Our team will confirm your exact location after verification.",
+  "submit": "Submit for verification",
+  "submitting": "Submitting…",
+  "licenseInUse": "This license is already registered."
+},
   "verification": {
     "pendingTitle": "Verification in progress",
     "pendingBody": "An administrator is reviewing your pharmacy. You'll be notified when it is verified.",
