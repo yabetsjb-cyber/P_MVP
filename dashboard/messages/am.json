@@ -55,7 +55,8 @@
     "pendingBody": "አስተዳዳሪ ፋርማሲዎን በመገምገም ላይ ነው። ሲረጋገጥ ይነገርዎታል።",
     "suspendedTitle": "መለያ ታግዷል",
     "suspendedBody": "እገዳውን ለመፍታት ድጋፍን ያግኙ።",
-    "suspendedReason": "ምክንያት፡ {reason}"
+    "suspendedReasonLabel": "ምክንያት",
+    "contactSupport": "ይህ ስህተት ነው ብለው ካሰቡ ድጋፍን ያግኙ።"
   },
   "nav": {
     "reservations": "ቦታ ማስያዣዎች",

@@ -56,7 +56,8 @@
     "pendingBody": "An administrator is reviewing your pharmacy. You'll be notified when it is verified.",
     "suspendedTitle": "Account suspended",
     "suspendedBody": "Contact support to resolve the suspension.",
-    "suspendedReason": "Reason: {reason}"
+    "suspendedReasonLabel": "Reason",
+    "contactSupport": "Contact support if you believe this is a mistake."
   },
   "nav": {
     "reservations": "Reservations",
