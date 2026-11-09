@@ -97,10 +97,13 @@
       "expiry": "የሚያበቃበት",
       "updated": "የተሻሻለ",
       "actions": "ተግባሮች"
+     
     },
     "markOut": "ከክምችት ውጪ",
     "edit": "አስተካክል",
-    "lowStock": "ዝቅተኛ"
+    "lowStock": "ዝቅተኛ",
+    "available": "የሚገኝ",
+    "noResults": "ከፍለጋዎ ጋር የሚዛመድ ንጥል የለም።"
   },
   "settings": {
     "title": "ቅንብሮች",

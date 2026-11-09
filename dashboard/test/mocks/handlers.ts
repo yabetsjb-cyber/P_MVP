@@ -71,7 +71,84 @@ export const handlers = [
   http.post(`${API}/v1/auth/logout`, () =>
     HttpResponse.json({ ok: true }),
   ),
+
+      http.get(`${API}/v1/pharmacy/inventory`, () =>
+    HttpResponse.json({
+      total: inventoryItems.length,
+      items: inventoryItems,
+    }),
+  ),
 ];
+export const inventoryItems = [
+  {
+    id: 'inv-1',
+    medicine_id: 'med-amoxil',
+    brand_name: 'Amoxil',
+    generic_name: 'Amoxicillin',
+    strength: '500mg',
+    pack_size: '16 caps',
+    rx_status: 'RX' as const,
+    qty_on_hand: 10,
+    qty_reserved: 0,
+    available: 10,
+    expiry_date: '2027-12-10T21:00:00.000Z',
+    is_out_of_stock: false,
+    updated_at: '2026-11-06T12:35:15.815Z',
+    expiring_soon: false,
+  },
+  {
+    id: 'inv-2',
+    medicine_id: 'med-augmentin',
+    brand_name: 'Augmentin',
+    generic_name: 'Amoxicillin/Clavulanate',
+    strength: '625mg',
+    pack_size: '14 tabs',
+    rx_status: 'RX' as const,
+    qty_on_hand: 25,
+    qty_reserved: 0,
+    available: 25,
+    expiry_date: '2027-12-30T21:00:00.000Z',
+    is_out_of_stock: false,
+    updated_at: '2026-10-27T20:14:16.733Z',
+    expiring_soon: false,
+  },
+  {
+    id: 'inv-3',
+    medicine_id: 'med-panadol',
+    brand_name: 'Panadol',
+    generic_name: 'Paracetamol',
+    strength: '500mg',
+    pack_size: '24 tabs',
+    rx_status: 'OTC' as const,
+    qty_on_hand: 3,
+    qty_reserved: 0,
+    available: 3,
+    expiry_date: '2027-12-10T21:00:00.000Z',
+    is_out_of_stock: false,
+    updated_at: '2026-11-06T12:35:15.815Z',
+    expiring_soon: false,
+  },
+  {
+    id: 'inv-4',
+    medicine_id: 'med-ventolin',
+    brand_name: 'Ventolin',
+    generic_name: 'Salbutamol',
+    strength: '100mcg',
+    pack_size: '200 doses',
+    rx_status: 'RX' as const,
+    qty_on_hand: 5,
+    qty_reserved: 0,
+    available: 5,
+    expiry_date: '2027-12-10T21:00:00.000Z',
+    is_out_of_stock: false,
+    updated_at: '2026-11-06T12:35:15.815Z',
+    expiring_soon: false,
+  },
+];
+
+
+
+
 
 /** Helpers used by tests to switch the state of the mock API. */
 export const mockAuth = (state: AuthState) => {
@@ -96,5 +173,9 @@ export const mockAuth = (state: AuthState) => {
       ];
     case 'authenticated':
       return [];
+
+      
   }
+  
+  
 };

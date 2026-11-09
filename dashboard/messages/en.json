@@ -98,10 +98,13 @@
       "expiry": "Expires",
       "updated": "Updated",
       "actions": "Actions"
+     
     },
     "markOut": "Mark out of stock",
     "edit": "Edit",
-    "lowStock": "Low"
+    "lowStock": "Low",
+    "available": "Available",
+    "noResults": "No items match your search."
   },
   "settings": {
     "title": "Settings",
