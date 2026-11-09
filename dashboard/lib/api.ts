@@ -32,16 +32,20 @@ export async function api<T = unknown>(
 ): Promise<ApiResponse<T>> {
   const { body, skipAuthRedirect, headers, ...rest } = options;
 
-  let response: Response;
+   let response: Response;
   try {
+    // Only set Content-Type when there is actually a body.
+    // Fastify rejects a POST with Content-Type: application/json but no body,
+    // which broke logout (POST /v1/auth/logout sends no body).
+    const hasBody = body !== undefined;
     response = await fetch(`${API_URL}${path}`, {
       ...rest,
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
         ...(headers ?? {}),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch {
     return { ok: false, error: { kind: 'network' } };

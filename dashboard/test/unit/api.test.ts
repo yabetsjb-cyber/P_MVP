@@ -88,4 +88,32 @@ describe('lib/api', () => {
       errorMessage({ kind: 'rate_limited', retryAfter: 5 }),
     ).toContain('5s');
   });
+    it('does not send a Content-Type header on requests without a body', async () => {
+    let captured: string | null | 'handler-did-not-run' = 'handler-did-not-run';
+    server.use(
+      http.post(`${API}/v1/echo`, ({ request }) => {
+        captured = request.headers.get('content-type');
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    const result = await api('/v1/echo', { method: 'POST' });
+
+    expect(result.ok).toBe(true);
+    expect(captured).toBeNull();
+  });
+
+  it('does send Content-Type: application/json when a body is provided', async () => {
+    let captured: string | null = null;
+    server.use(
+      http.post(`${API}/v1/echo`, ({ request }) => {
+        captured = request.headers.get('content-type');
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    await api('/v1/echo', { method: 'POST', body: { a: 1 } });
+
+    expect(captured).toBe('application/json');
+  });
 });
