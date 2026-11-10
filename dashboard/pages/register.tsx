@@ -2,15 +2,19 @@ import { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslations } from 'next-intl';
+import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage, ApiError } from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, type User } from '@/context/AuthContext';
+
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+
 
 export default function RegisterPage() {
   const t = useTranslations('register');
   const tAuth = useTranslations('auth');
   const router = useRouter();
   const { status, refetch } = useAuth();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,8 +37,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     setError(null);
     setFieldErrors({});
-
-    const result = await api('/v1/auth/register', {
+    const result = await api<{ user: User }>('/v1/auth/register', {
       method: 'POST',
       body: {
         email,
@@ -61,8 +64,10 @@ export default function RegisterPage() {
       return;
     }
 
-    // User is now logged in but has no pharmacy → 'no-pharmacy'
-    // → the useEffect above redirects to /pending
+    // Update the cache synchronously so `meQuery.data` reflects the new user
+    // immediately. This flips `status` to 'no-pharmacy' and triggers the
+    // redirect effect below without waiting for a background refetch.
+    queryClient.setQueryData(['me'], result);
     refetch();
   };
 
