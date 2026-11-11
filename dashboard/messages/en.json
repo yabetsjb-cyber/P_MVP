@@ -97,14 +97,30 @@
       "price": "Price (ETB)",
       "expiry": "Expires",
       "updated": "Updated",
-      "actions": "Actions"
-     
+      "actions": "Actions" 
     },
     "markOut": "Mark out of stock",
     "edit": "Edit",
     "lowStock": "Low",
     "available": "Available",
-    "noResults": "No items match your search."
+    "noResults": "No items match your search.",
+    "belowReserved": "Cannot reduce below reserved quantity. Customers have reserved this stock.",
+    "invalidQty": "Enter a whole number 0 or greater.",
+    "noChanges": "No changes to save.",
+    "saving": "Saving…",
+    "outOfStock": "Out of stock",
+    "restore": "Restore to stock",
+    "markOutConfirmTitle": "Mark out of stock?",
+    "markOutConfirmBody": "This will hide it from customer search.",
+    "markOutConfirmBodyWithReserved": "This will hide it from customer search. {count} reserved units will still be honoured.",
+    "markOutConfirmYes": "Mark out of stock",
+    "restoreTitle": "Restore to stock",
+    "restoreBody": "Enter the quantity currently in stock.",
+    "restoreHint": "Your current reserved quantity is {count}.",
+    "restoreQtyLabel": "Quantity",
+    "restoreConfirm": "Restore",
+    "dialogBusy": "Working…",
+    "invalidRestoreQty": "Enter a whole number greater than 0."
   },
   "settings": {
     "title": "Settings",
