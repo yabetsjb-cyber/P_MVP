@@ -2,16 +2,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslations } from 'next-intl';
 
-const items = [
-  { href: '/reservations', key: 'reservations' },
-  { href: '/stock', key: 'stock' },
-  { href: '/import', key: 'import' },
-  { href: '/settings/telegram', key: 'telegram' },
-] as const;
+interface SidebarProps {
+  reservationBadge: number;
+}
 
-export function Sidebar() {
+export function Sidebar({ reservationBadge }: SidebarProps) {
   const router = useRouter();
   const t = useTranslations('nav');
+
+  const items = [
+    { href: '/reservations', key: 'reservations' as const, badge: reservationBadge },
+    { href: '/stock', key: 'stock' as const, badge: 0 },
+    { href: '/import', key: 'import' as const, badge: 0 },
+    { href: '/settings/telegram', key: 'telegram' as const, badge: 0 },
+  ];
 
   return (
     <nav
@@ -29,13 +33,21 @@ export function Sidebar() {
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`block px-4 py-2 text-sm ${
+                className={`flex items-center justify-between px-4 py-2 text-sm ${
                   active
                     ? 'bg-brand-50 text-brand-700 font-medium border-r-2 border-brand-600'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                {t(item.key)}
+                <span>{t(item.key)}</span>
+                {item.badge > 0 && (
+                  <span
+                    aria-label={`${item.badge} new`}
+                    className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-danger-600 text-white text-xs font-medium"
+                  >
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
               </Link>
             </li>
           );

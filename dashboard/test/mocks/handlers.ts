@@ -2,6 +2,10 @@ import { http, HttpResponse } from 'msw';
 
 const API = 'http://localhost:3000';
 
+// ============================================================
+// Fixtures — pharmacy and auth
+// ============================================================
+
 export const verifiedPharmacy = {
   pharmacy: {
     id: 'a8c50790-068b-4d58-856d-31350fb6c2d8',
@@ -42,43 +46,10 @@ export const verifiedUser = {
   pharmacyId: 'a8c50790-068b-4d58-856d-31350fb6c2d8',
 };
 
-type AuthState = 'authenticated' | 'unauthenticated' | 'pending' | 'suspended';
+// ============================================================
+// Fixtures — inventory
+// ============================================================
 
-/**
- * Default handlers assume "verified, authenticated" so tests that want a
- * different state call `server.use(...)` to override.
- */
-export const handlers = [
-  http.get(`${API}/v1/auth/me`, () =>
-    HttpResponse.json({ user: verifiedUser }),
-  ),
-
-  http.get(`${API}/v1/pharmacy/me`, () =>
-    HttpResponse.json(verifiedPharmacy),
-  ),
-
-  http.post(`${API}/v1/auth/login`, async ({ request }) => {
-    const body = (await request.json()) as { email: string; password: string };
-    if (body.email === 'owner@test.com' && body.password === 'correct-horse-battery') {
-      return HttpResponse.json({ user: verifiedUser });
-    }
-    return HttpResponse.json(
-      { error: 'INVALID_CREDENTIALS' },
-      { status: 401 },
-    );
-  }),
-
-  http.post(`${API}/v1/auth/logout`, () =>
-    HttpResponse.json({ ok: true }),
-  ),
-
-      http.get(`${API}/v1/pharmacy/inventory`, () =>
-    HttpResponse.json({
-      total: inventoryItems.length,
-      items: inventoryItems,
-    }),
-  ),
-];
 export const inventoryItems = [
   {
     id: 'inv-1',
@@ -146,11 +117,152 @@ export const inventoryItems = [
   },
 ];
 
+// ============================================================
+// Fixtures — reservations
+// ============================================================
 
+export const reservationFixtures = {
+  pending: {
+    id: 'res-1',
+    status: 'requested' as const,
+    qty: 2,
+    requiresPrescription: true,
+    respondBy: new Date(Date.now() + 15 * 60_000).toISOString(),
+    pickupBy: null,
+    createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    confirmedAt: null,
+    fulfilledAt: null,
+    closedAt: null,
+    declineReason: null,
+    closedReason: null,
+    medicine: {
+      id: 'med-amoxil',
+      brandName: 'Amoxil',
+      genericName: 'Amoxicillin',
+      strength: '500mg',
+      packSize: '16 caps',
+    },
+    customer: {
+      name: 'Selam T.',
+      phone: '+251911234567',
+      phoneVerified: false,
+      noShowCount: 0,
+    },
+  },
+  confirmed: {
+    id: 'res-2',
+    status: 'confirmed' as const,
+    qty: 1,
+    requiresPrescription: false,
+    respondBy: new Date(Date.now() - 10 * 60_000).toISOString(),
+    pickupBy: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+    createdAt: new Date(Date.now() - 30 * 60_000).toISOString(),
+    confirmedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+    fulfilledAt: null,
+    closedAt: null,
+    declineReason: null,
+    closedReason: null,
+    medicine: {
+      id: 'med-panadol',
+      brandName: 'Panadol',
+      genericName: 'Paracetamol',
+      strength: '500mg',
+      packSize: '24 tabs',
+    },
+    customer: {
+      name: 'Dawit M.',
+      phone: '+251911987654',
+      phoneVerified: false,
+      noShowCount: 1,
+    },
+  },
+};
 
+// ============================================================
+// Handlers
+// ============================================================
 
+/**
+ * Default handlers assume "verified, authenticated" so tests that want a
+ * different state call `server.use(...)` to override.
+ */
+export const handlers = [
+  // ---- Auth ----
+  http.get(`${API}/v1/auth/me`, () =>
+    HttpResponse.json({ user: verifiedUser }),
+  ),
+  http.post(`${API}/v1/auth/login`, async ({ request }) => {
+    const body = (await request.json()) as { email: string; password: string };
+    if (body.email === 'owner@test.com' && body.password === 'correct-horse-battery') {
+      return HttpResponse.json({ user: verifiedUser });
+    }
+    return HttpResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
+  }),
+  http.post(`${API}/v1/auth/logout`, () =>
+    HttpResponse.json({ ok: true }),
+  ),
 
-/** Helpers used by tests to switch the state of the mock API. */
+  // ---- Pharmacy ----
+  http.get(`${API}/v1/pharmacy/me`, () =>
+    HttpResponse.json(verifiedPharmacy),
+  ),
+  http.get(`${API}/v1/pharmacy/inventory`, () =>
+    HttpResponse.json({
+      total: inventoryItems.length,
+      items: inventoryItems,
+    }),
+  ),
+
+  // ---- Reservations: summary (badge, 11.3b) ----
+  http.get(`${API}/v1/pharmacy/reservations/summary`, () =>
+    HttpResponse.json({
+      requested: 1,
+      confirmed: 1,
+      nextRespondBy: reservationFixtures.pending.respondBy,
+      serverTime: new Date().toISOString(),
+    }),
+  ),
+
+  // ---- Reservations: list (tabs, 11.3b) ----
+  http.get(`${API}/v1/pharmacy/reservations`, ({ request }) => {
+    const url = new URL(request.url);
+    const scope = url.searchParams.get('scope') ?? 'active';
+    const list =
+      scope === 'pending'
+        ? [reservationFixtures.pending]
+        : scope === 'confirmed'
+          ? [reservationFixtures.confirmed]
+          : [reservationFixtures.pending, reservationFixtures.confirmed];
+    return HttpResponse.json({ reservations: list });
+  }),
+
+  // ---- Reservations: confirm (11.3c) ----
+  http.post(`${API}/v1/pharmacy/reservations/:id/confirm`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      holdMinutes?: number;
+    };
+    const mins = body.holdMinutes ?? 120;
+    return HttpResponse.json({
+      reservation: {
+        ...reservationFixtures.pending,
+        status: 'confirmed',
+        pickupBy: new Date(Date.now() + mins * 60_000).toISOString(),
+        confirmedAt: new Date().toISOString(),
+      },
+    });
+  }),
+];
+
+// ============================================================
+// Helpers
+// ============================================================
+
+type AuthState = 'authenticated' | 'unauthenticated' | 'pending' | 'suspended';
+
+/**
+ * Returns MSW handlers that override the defaults to simulate each auth state.
+ * Usage in tests: `server.use(...mockAuth('suspended'));`
+ */
 export const mockAuth = (state: AuthState) => {
   switch (state) {
     case 'unauthenticated':
@@ -173,9 +285,5 @@ export const mockAuth = (state: AuthState) => {
       ];
     case 'authenticated':
       return [];
-
-      
   }
-  
-  
 };

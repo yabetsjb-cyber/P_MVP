@@ -116,4 +116,37 @@ describe('lib/api', () => {
 
     expect(captured).toBe('application/json');
   });
+
+
+
+
+
+
+
+
+    it('normalizes VALIDATION with issues array into fields object', async () => {
+    server.use(
+      http.get(`${API}/v1/echo`, () =>
+        HttpResponse.json(
+          {
+            error: 'VALIDATION',
+            issues: [
+              { path: 'quantity', message: 'must be an integer' },
+              { path: '', message: 'Nothing to update' },
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    const result = await api('/v1/echo');
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.error.kind === 'validation') {
+      expect(result.error.fields).toEqual({
+        quantity: 'must be an integer',
+        _form: 'Nothing to update',
+      });
+    }
+  });
 });

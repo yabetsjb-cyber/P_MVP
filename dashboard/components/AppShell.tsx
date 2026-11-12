@@ -3,14 +3,17 @@ import { useTranslations } from 'next-intl';
 import { Sidebar } from './Sidebar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useAuth } from '@/context/AuthContext';
+import { useReservationBadge } from '@/lib/useReservationBadge';
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { pharmacy, user, logout } = useAuth();
+  const { pharmacy, user, status, logout } = useAuth();
   const t = useTranslations('auth');
+
+  const { count } = useReservationBadge(status === 'verified');
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar reservationBadge={count} />
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-14 border-b bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
           <div className="font-medium text-sm truncate">

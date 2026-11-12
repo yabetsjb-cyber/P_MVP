@@ -73,10 +73,11 @@ async function parseError(
     return { kind: 'unauthorized' };
   }
 
-  const body = (await response.json().catch(() => ({}))) as {
+    const body = (await response.json().catch(() => ({}))) as {
     error?: string;
     message?: string;
     fields?: Record<string, string>;
+    issues?: Array<{ path?: string; message: string }>;
     code?: string;
   };
 
@@ -91,9 +92,17 @@ async function parseError(
         message: body.message ?? body.error ?? 'Conflict',
         code: body.code ?? body.error,
       };
-    case 422:
-    case 400:
-      return { kind: 'validation', fields: body.fields ?? {} };
+      case 422:
+      case 400: {
+      const fields: Record<string, string> = { ...(body.fields ?? {}) };
+      if (Array.isArray(body.issues)) {
+        for (const issue of body.issues) {
+          const key = issue.path && issue.path.length > 0 ? issue.path : '_form';
+          fields[key] = issue.message;
+        }
+      }
+      return { kind: 'validation', fields };
+    }
     case 429: {
       const retry = Number(response.headers.get('Retry-After') ?? '60');
       return { kind: 'rate_limited', retryAfter: Number.isFinite(retry) ? retry : 60 };
