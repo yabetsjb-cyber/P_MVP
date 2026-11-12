@@ -1,3 +1,5 @@
+
+
 {
   "common": {
     "appName": "MedFinder",
@@ -130,13 +132,57 @@
   "handingOver": "Handing over…",
   "fulfilErrorWrongCode": "The code does not match this reservation."
 },
-  
+
   "sound": {
     "enable": "Enable sound alerts",
     "disable": "Disable sound alerts",
     "titleOff": "Sound alerts off",
     "titleOn": "Sound alerts on"
   },
+
+
+  "import": {
+  "errorFileSizeTooLarge": "File is too large. Maximum 5 MB.",
+  "title": "Import inventory",
+  "subtitle": "Upload a CSV file exported from your inventory system.",
+  "step1": "Upload",
+  "step2": "Review",
+  "step3": "Commit",
+  "fileLabel": "CSV file",
+  "fileHint": "Up to 5 MB. Choose a file and click Upload.",
+  "downloadTemplate": "Download template",
+  "modeLabel": "Import mode",
+  "modeUpdate": "Update — apply only the rows in this file",
+  "modeSync": "Sync — also mark missing items as out of stock",
+  "uploadButton": "Upload and preview",
+  "uploading": "Uploading…",
+  "errorFileType": "Only .csv files are allowed.",
+  "errorFileEmpty": "The file is empty.",
+  "errorUpload": "Upload failed. Please try again.",
+  "summaryTitle": "Preview summary",
+  "summaryFilename": "File: {filename}",
+  "summaryModeUpdate": "Mode: Update",
+  "summaryModeSync": "Mode: Sync",
+  "summaryTotal": "{count} rows in file",
+  "summaryOk": "{count} ready to import",
+  "summaryError": "{count} with errors",
+  "summaryUnmatched": "{count} not in catalog",
+  "summaryProductsToUpdate": "{count} products will be updated",
+  "summaryMergedRows": "{count} duplicate rows merged",
+  "summaryWillMarkOutOfStock": "{count} products will be marked out of stock",
+  "problemsTitle": "Rows that need attention",
+  "problemsTruncated": "Showing first {shown} of {total}",
+  "willNotCommit": "These rows will be skipped.",
+  "syncBlocked": "Sync mode requires every row to be valid. Fix the errors or switch to Update mode.",
+  "requiresAcceptSkipped": "Some rows will be skipped. You can accept this on the next step.",
+  "ignoredColumnsTitle": "Ignored columns",
+  "expiresIn": "Preview expires in {hours} hours.",
+  "continue": "Continue to review",
+  "startOver": "Start over",
+  "comingSoonStep3": "Commit lands in the next step."
+},
+
+
     "stock": {
     "title": "Stock",
     "empty": "No items in stock yet. Add your first item or import a CSV.",

@@ -32,24 +32,32 @@ export async function api<T = unknown>(
 ): Promise<ApiResponse<T>> {
   const { body, skipAuthRedirect, headers, ...rest } = options;
 
-   let response: Response;
+
+
+     let response: Response;
   try {
-    // Only set Content-Type when there is actually a body.
-    // Fastify rejects a POST with Content-Type: application/json but no body,
-    // which broke logout (POST /v1/auth/logout sends no body).
+    // Content-Type rules:
+    // - No body → no header (Fastify rejects JSON CT without a body)
+    // - FormData → let the browser set it (it includes the multipart boundary)
+    // - Everything else → application/json
+    const isFormData = body instanceof FormData;
     const hasBody = body !== undefined;
     response = await fetch(`${API_URL}${path}`, {
       ...rest,
       credentials: 'include',
       headers: {
-        ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+        ...(hasBody && !isFormData ? { 'Content-Type': 'application/json' } : {}),
         ...(headers ?? {}),
       },
-      body: hasBody ? JSON.stringify(body) : undefined,
+      body: !hasBody ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
     return { ok: false, error: { kind: 'network' } };
   }
+
+
+
+
 
   if (response.ok) {
     if (response.status === 204) return { ok: true, data: undefined as T };

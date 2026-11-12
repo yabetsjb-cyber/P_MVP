@@ -213,6 +213,72 @@ export const handlers = [
     }),
   ),
 
+
+  http.post(`${API}/v1/pharmacy/imports`, async ({ request }) => {
+    const url = new URL(request.url);
+    const mode = (url.searchParams.get('mode') ?? 'update') as 'update' | 'sync';
+    return HttpResponse.json(
+      {
+        import: {
+          id: 'imp-1',
+          filename: 'inventory.csv',
+          mode,
+          totalRows: 10,
+          okRows: 7,
+          errorRows: 2,
+          unmatchedRows: 1,
+          productsToUpdate: 6,
+          mergedRows: 1,
+          willMarkOutOfStock: mode === 'sync' ? 3 : null,
+          ignoredColumns: [],
+          expiresInHours: 24,
+        },
+        canCommit: mode === 'update' || (mode === 'sync' && false),
+        requiresAcceptSkipped: true,
+        syncBlockedReason:
+          mode === 'sync'
+            ? 'Fix every error and unmatched row first.'
+            : null,
+        problems: [
+          {
+            row_number: 3,
+            status: 'error',
+            raw: { brand_name: 'x' },
+            errors: [{ field: 'quantity', message: 'Must be a whole number' }],
+            warnings: [],
+            medicine_id: null,
+            quantity: null,
+            expiry_date: null,
+            suggestions: null,
+          },
+          {
+            row_number: 8,
+            status: 'unmatched',
+            raw: { brand_name: 'Unknown' },
+            errors: [],
+            warnings: [],
+            medicine_id: null,
+            quantity: 5,
+            expiry_date: null,
+            suggestions: [
+              {
+                id: 'med-x',
+                brand_name: 'Amoxil',
+                generic_name: 'Amoxicillin',
+                strength: '500mg',
+                pack_size: '16 caps',
+              },
+            ],
+          },
+        ],
+        problemsShown: 2,
+        sample: [],
+      },
+      { status: 201 },
+    );
+  }),
+
+
   // ---- Reservations: summary (badge, 11.3b) ----
   http.get(`${API}/v1/pharmacy/reservations/summary`, () =>
     HttpResponse.json({
