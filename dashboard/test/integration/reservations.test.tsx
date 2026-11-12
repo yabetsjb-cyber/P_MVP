@@ -365,6 +365,225 @@ describe('ReservationsPage', () => {
     ).toBeInTheDocument();
     expect(posted).toBe(false);
   });
+  it('shows the Look up by code button and opens the dialog with an empty input', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: /look up reservation/i }),
+    ).toBeInTheDocument();
+    const input = within(dialog).getByRole('textbox');
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('maxlength', '6');
+  });
+
+  it('auto-normalizes the code input (uppercase, O→0, I/L→1, strip non-alnum)', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByRole('textbox');
+
+    await userEvent.type(input, 'k7m2o');
+    expect(input).toHaveValue('K7M20');
+
+    await userEvent.type(input, 'q');
+    expect(input).toHaveValue('K7M20Q');
+  });
+
+  it('disables Look up until the code is 6 characters', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    const submit = within(dialog).getByRole('button', { name: /^look up$/i });
+    expect(submit).toBeDisabled();
+
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2Q');
+    expect(submit).toBeDisabled();
+
+    await userEvent.type(within(dialog).getByRole('textbox'), 'D');
+    expect(submit).toBeEnabled();
+  });
+
+  it('lookup success on a confirmed reservation shows the card with ready-for-pickup badge', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2QD');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^look up$/i }));
+
+    expect(await within(dialog).findByText('Panadol')).toBeInTheDocument();
+    expect(within(dialog).getByText(/ready for pickup/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: /^hand over$/i }),
+    ).toBeEnabled();
+  });
+
+  it('lookup success on a requested reservation shows not-confirmed note', async () => {
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/lookup`, () =>
+        HttpResponse.json({
+          reservation: reservationFixtures.pending,
+          readyForPickup: false,
+        }),
+      ),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2QD');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^look up$/i }));
+
+    expect(await within(dialog).findByText('Amoxil')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/not yet confirmed/i),
+    ).toBeInTheDocument();
+  });
+
+  it('lookup 404 shows inline error', async () => {
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/lookup`, () =>
+        HttpResponse.json({ error: 'CODE_NOT_FOUND' }, { status: 404 }),
+      ),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2QD');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^look up$/i }));
+
+    expect(
+      await within(dialog).findByText(/no active reservation with that code/i),
+    ).toBeInTheDocument();
+  });
+
+  it('hand over on a confirmed reservation calls fulfil and closes the dialog', async () => {
+    let fulfilCalled = false;
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/:id/fulfil`, () => {
+        fulfilCalled = true;
+        return HttpResponse.json({
+          reservation: { ...reservationFixtures.confirmed, status: 'fulfilled' },
+        });
+      }),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2QD');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^look up$/i }));
+    await within(dialog).findByText('Panadol');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^hand over$/i }));
+
+    await waitFor(() => {
+      expect(fulfilCalled).toBe(true);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('hand over on a requested reservation confirms first, then fulfils', async () => {
+    let confirmCalled = false;
+    let fulfilCalled = false;
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/lookup`, () =>
+        HttpResponse.json({
+          reservation: reservationFixtures.pending,
+          readyForPickup: false,
+        }),
+      ),
+      http.post(`${API}/v1/pharmacy/reservations/:id/confirm`, async ({ request }) => {
+        const body = (await request.json()) as { holdMinutes?: number };
+        confirmCalled = true;
+        expect(body.holdMinutes).toBe(120);
+        return HttpResponse.json({
+          reservation: { ...reservationFixtures.pending, status: 'confirmed' },
+        });
+      }),
+      http.post(`${API}/v1/pharmacy/reservations/:id/fulfil`, () => {
+        fulfilCalled = true;
+        return HttpResponse.json({
+          reservation: { ...reservationFixtures.pending, status: 'fulfilled' },
+        });
+      }),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2QD');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^look up$/i }));
+    await within(dialog).findByText(/not yet confirmed/i);
+    await userEvent.click(within(dialog).getByRole('button', { name: /^hand over$/i }));
+
+    await waitFor(() => {
+      expect(confirmCalled).toBe(true);
+      expect(fulfilCalled).toBe(true);
+    });
+  });
+
+  it('fulfil 403 WRONG_CODE shows inline error and keeps the dialog open', async () => {
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/:id/fulfil`, () =>
+        HttpResponse.json({ error: 'WRONG_CODE' }, { status: 403 }),
+      ),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(
+      screen.getByRole('button', { name: /look up by code/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'K7M2QD');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^look up$/i }));
+    await within(dialog).findByText('Panadol');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^hand over$/i }));
+
+    expect(
+      await within(dialog).findByText(/the code does not match this reservation/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+
 
 
 

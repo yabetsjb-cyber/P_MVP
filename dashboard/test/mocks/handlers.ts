@@ -252,6 +252,19 @@ export const handlers = [
     });
   }),
 
+
+    http.post(`${API}/v1/pharmacy/reservations/lookup`, async ({ request }) => {
+    const body = (await request.json()) as { code: string };
+    if (!body.code || body.code.length !== 6) {
+      return HttpResponse.json({ error: 'INVALID_CODE' }, { status: 400 });
+    }
+    // Default: return the confirmed fixture. Tests override for other cases.
+    return HttpResponse.json({
+      reservation: reservationFixtures.confirmed,
+      readyForPickup: true,
+    });
+  }),
+
     http.post(`${API}/v1/pharmacy/reservations/:id/decline`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as {
       reason?: string;
@@ -267,6 +280,20 @@ export const handlers = [
       },
       markedOutOfStock:
         body.reason === 'out_of_stock' && body.alsoMarkOutOfStock !== false,
+    });
+  }),
+
+    http.post(`${API}/v1/pharmacy/reservations/:id/fulfil`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { code?: string };
+    if (!body.code) {
+      return HttpResponse.json({ error: 'INVALID_CODE' }, { status: 400 });
+    }
+    return HttpResponse.json({
+      reservation: {
+        ...reservationFixtures.confirmed,
+        status: 'fulfilled',
+        fulfilledAt: new Date().toISOString(),
+      },
     });
   }),
 

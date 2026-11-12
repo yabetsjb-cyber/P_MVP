@@ -114,7 +114,21 @@
   "declineConfirmButton": "Decline reservation",
   "declineErrorInvalidState": "This reservation is no longer active.",
   "declineErrorNoteRequired": "A note is required for the Other reason.",
-  "declineSuccessMarkedOut": "Reservation declined. Item also marked out of stock."
+  "declineSuccessMarkedOut": "Reservation declined. Item also marked out of stock.",
+  "lookupButton": "Look up by code",
+  "lookupTitle": "Look up reservation",
+  "lookupSubtitle": "Enter the 6-character code the customer received.",
+  "codeLabel": "Code",
+  "codeHint": "Letters and numbers, case does not matter",
+  "lookupSubmit": "Look up",
+  "lookingUp": "Looking up…",
+  "lookupErrorNotFound": "No active reservation with that code.",
+  "lookupErrorInvalidCode": "Enter the 6-character code.",
+  "readyForPickup": "Ready for pickup",
+  "notReadyConfirmFirst": "Not yet confirmed — handing over will confirm it and mark it picked up.",
+  "handOver": "Hand over",
+  "handingOver": "Handing over…",
+  "fulfilErrorWrongCode": "The code does not match this reservation."
 },
   "stock": {
     "title": "Stock",

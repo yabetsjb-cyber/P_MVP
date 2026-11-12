@@ -45,6 +45,11 @@ interface DeclineResponse {
   markedOutOfStock: boolean;
 }
 
+interface LookupResponse {
+  reservation: Reservation;
+  readyForPickup: boolean;
+}
+
 const TABS: {
   key: TabKey;
   scope: Scope;
@@ -63,6 +68,7 @@ export default function ReservationsPage() {
   const [tab, setTab] = useState<TabKey>('new');
   const [confirming, setConfirming] = useState<Reservation | null>(null);
   const [declining, setDeclining] = useState<Reservation | null>(null);
+  const [lookupOpen, setLookupOpen] = useState(false);
 
   const currentTab = TABS.find((x) => x.key === tab) ?? TABS[0];
 
@@ -82,7 +88,16 @@ export default function ReservationsPage() {
 
   return (
     <AppShell>
-      <h1 className="text-lg font-semibold mb-4">{t('title')}</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-semibold">{t('title')}</h1>
+        <button
+          type="button"
+          onClick={() => setLookupOpen(true)}
+          className="text-sm px-3 py-1.5 rounded border border-brand-500 text-brand-600 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        >
+          {t('lookupButton')}
+        </button>
+      </div>
 
       <div className="border-b mb-4">
         <div role="tablist" className="flex gap-1">
@@ -150,6 +165,10 @@ export default function ReservationsPage() {
           reservation={declining}
           onClose={() => setDeclining(null)}
         />
+      )}
+
+      {lookupOpen && (
+        <LookupDialog onClose={() => setLookupOpen(false)} />
       )}
     </AppShell>
   );
@@ -552,6 +571,265 @@ function DeclineDialog({
             {submitting ? t('declining') : t('declineConfirmButton')}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LookupDialog({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('reservations');
+  const tCommon = useTranslations('common');
+  const queryClient = useQueryClient();
+
+  const [code, setCode] = useState('');
+  const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [readyForPickup, setReadyForPickup] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [fulfilling, setFulfilling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const codeComplete = code.length === 6;
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !lookingUp && !fulfilling) onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lookingUp, fulfilling, onClose]);
+
+  const onCodeChange = (raw: string) => {
+    // Same normalization the server applies: uppercase, strip non-alphanumeric,
+    // O → 0, I/L → 1, cap at 6 characters.
+    const normalized = raw
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .replace(/O/g, '0')
+      .replace(/[IL]/g, '1')
+      .slice(0, 6);
+    setCode(normalized);
+    setError(null);
+  };
+
+  const onLookup = async () => {
+    if (!codeComplete) return;
+    setError(null);
+    setLookingUp(true);
+
+    const result = await api<LookupResponse>('/v1/pharmacy/reservations/lookup', {
+      method: 'POST',
+      body: { code },
+    });
+
+    setLookingUp(false);
+
+    if (!result.ok) {
+      if (result.error.kind === 'not_found') {
+        setError(t('lookupErrorNotFound'));
+      } else if (result.error.kind === 'validation') {
+        setError(t('lookupErrorInvalidCode'));
+      } else {
+        setError(errorMessage(result.error));
+      }
+      return;
+    }
+
+    setReservation(result.data.reservation);
+    setReadyForPickup(result.data.readyForPickup);
+  };
+
+  const onHandOver = async () => {
+    if (!reservation) return;
+    setError(null);
+    setFulfilling(true);
+
+    // If the reservation is still "requested", confirm it first with a
+    // default 2-hour pickup window (the customer is physically here, so
+    // they will pick up now; the window just needs to be non-zero).
+    if (!readyForPickup) {
+      const confirmResult = await api(
+        `/v1/pharmacy/reservations/${reservation.id}/confirm`,
+        { method: 'POST', body: { holdMinutes: 120 } },
+      );
+      if (!confirmResult.ok) {
+        setFulfilling(false);
+        if (
+          confirmResult.error.kind === 'conflict' &&
+          confirmResult.error.code === 'RESPONSE_WINDOW_PASSED'
+        ) {
+          setError(t('confirmErrorResponsePassed'));
+        } else if (
+          confirmResult.error.kind === 'conflict' &&
+          confirmResult.error.code === 'INVALID_STATE'
+        ) {
+          setError(t('confirmErrorInvalidState'));
+        } else {
+          setError(errorMessage(confirmResult.error));
+        }
+        return;
+      }
+    }
+
+    const fulfilResult = await api(
+      `/v1/pharmacy/reservations/${reservation.id}/fulfil`,
+      { method: 'POST', body: { code } },
+    );
+
+    setFulfilling(false);
+
+    if (!fulfilResult.ok) {
+      if (fulfilResult.error.kind === 'forbidden') {
+        setError(t('fulfilErrorWrongCode'));
+      } else if (
+        fulfilResult.error.kind === 'conflict' &&
+        fulfilResult.error.code === 'NOT_CONFIRMED'
+      ) {
+        setError(t('confirmErrorInvalidState'));
+      } else if (
+        fulfilResult.error.kind === 'conflict' &&
+        fulfilResult.error.code === 'INVALID_STATE'
+      ) {
+        setError(t('confirmErrorInvalidState'));
+      } else {
+        setError(errorMessage(fulfilResult.error));
+      }
+      await queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      return;
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['reservations'] }),
+      queryClient.invalidateQueries({ queryKey: ['reservations-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['stock'] }),
+    ]);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !lookingUp && !fulfilling) onClose();
+      }}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lookup-dialog-title"
+        className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4"
+      >
+        <h2 id="lookup-dialog-title" className="text-lg font-semibold">
+          {t('lookupTitle')}
+        </h2>
+        <p className="text-sm text-gray-600">{t('lookupSubtitle')}</p>
+
+        <label className="block">
+          <span className="text-sm font-medium">{t('codeLabel')}</span>
+          <input
+            type="text"
+            inputMode="text"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            maxLength={6}
+            value={code}
+            onChange={(e) => onCodeChange(e.target.value)}
+            disabled={lookingUp || fulfilling}
+            autoFocus
+            aria-label={t('codeLabel')}
+            className="mt-1 w-full rounded border-gray-300 font-mono text-lg tracking-widest text-center focus:border-brand-500 focus:ring-brand-500"
+          />
+          <span className="text-xs text-gray-500 mt-1 block">{t('codeHint')}</span>
+        </label>
+
+        {!reservation && (
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={lookingUp}
+              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {tCommon('cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={onLookup}
+              disabled={!codeComplete || lookingUp}
+              className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {lookingUp ? t('lookingUp') : t('lookupSubmit')}
+            </button>
+          </div>
+        )}
+
+        {reservation && (
+          <>
+            <div className="bg-gray-50 rounded border p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="font-medium">
+                  {reservation.medicine.brandName}
+                </div>
+                <div className="text-sm font-medium">
+                  {t('qty', { count: reservation.qty })}
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                {reservation.medicine.genericName} · {reservation.medicine.strength} ·{' '}
+                {reservation.medicine.packSize}
+              </div>
+              <div className="text-sm text-gray-700 pt-1">
+                <span className="font-medium">{reservation.customer.name}</span>
+                {reservation.customer.phone && (
+                  <span className="ml-2">{reservation.customer.phone}</span>
+                )}
+              </div>
+              <div className="pt-2">
+                {readyForPickup ? (
+                  <span className="inline-block text-xs bg-success-50 text-success-600 px-2 py-0.5 rounded">
+                    {t('readyForPickup')}
+                  </span>
+                ) : (
+                  <span className="inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                    {t('notReadyConfirmFirst')}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
+                {error}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={fulfilling}
+                className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {tCommon('close')}
+              </button>
+              <button
+                type="button"
+                onClick={onHandOver}
+                disabled={fulfilling}
+                className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {fulfilling ? t('handingOver') : t('handOver')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {!reservation && error && (
+          <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );

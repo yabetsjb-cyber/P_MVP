@@ -113,7 +113,21 @@
   "declineConfirmButton": "ቦታ ማስያዣ አትቀበል",
   "declineErrorInvalidState": "ይህ ቦታ ማስያዣ ከአሁን በኋላ ንቁ አይደለም።",
   "declineErrorNoteRequired": "ለሌላ ምክንያት ማስታወሻ ያስፈልጋል።",
-  "declineSuccessMarkedOut": "ቦታ ማስያዣው ተከልክሏል። ንጥሉም ከክምችት ውጪ ሆኗል።"
+  "declineSuccessMarkedOut": "ቦታ ማስያዣው ተከልክሏል። ንጥሉም ከክምችት ውጪ ሆኗል።",
+  "lookupButton": "በኮድ ፈልግ",
+  "lookupTitle": "ቦታ ማስያዣ ፈልግ",
+  "lookupSubtitle": "ደንበኛው የተቀበለውን የ6 ፊደል ኮድ ያስገቡ።",
+  "codeLabel": "ኮድ",
+  "codeHint": "ፊደሎችና ቁጥሮች፤ ፊደል መጠን ለውጥ አያመጣም",
+  "lookupSubmit": "ፈልግ",
+  "lookingUp": "በመፈለግ ላይ…",
+  "lookupErrorNotFound": "በዚህ ኮድ ንቁ ቦታ ማስያዣ የለም።",
+  "lookupErrorInvalidCode": "የ6 ፊደል ኮዱን ያስገቡ።",
+  "readyForPickup": "ለመውሰድ ዝግጁ",
+  "notReadyConfirmFirst": "አልተረጋገጠም — ማስረከብ ያረጋግጠውና እንደተወሰደ ያመለክታል።",
+  "handOver": "አስረክብ",
+  "handingOver": "በማስረከብ ላይ…",
+  "fulfilErrorWrongCode": "ኮዱ ከዚህ ቦታ ማስያዣ ጋር አይዛመድም።"
 },
   "stock": {
     "title": "ክምችት",
