@@ -175,7 +175,21 @@
   "expiresIn": "ቅድመ እይታው በ{hours} ሰዓት ውስጥ ያበቃል።",
   "continue": "ወደ ግምገማ ይቀጥሉ",
   "startOver": "ከመጀመሪያ ጀምር",
-  "comingSoonStep3": "ማስገባት በሚቀጥለው ደረጃ ይመጣል።"
+  "comingSoonStep3": "ማስገባት በሚቀጥለው ደረጃ ይመጣል።",
+  "rowsTitle": "ረድፎች",
+  "filterAll": "ሁሉም",
+  "filterErrors": "ስህተቶች",
+  "filterUnmatched": "ያልተገኙ",
+  "filterOk": "ዝግጁ",
+  "rowStatusOk": "ትክክል",
+  "rowStatusError": "ስህተት",
+  "rowStatusUnmatched": "ያልተገኘ",
+  "noRowsInFilter": "በዚህ ማጣሪያ የሚዛመድ ረድፍ የለም።",
+  "pageShowing": "ከ{total} ውስጥ {from}–{to} በማሳየት ላይ",
+  "prevPage": "ቀዳሚ",
+  "nextPage": "ቀጣይ",
+  "downloadErrors": "ስህተቶችን አውርድ (CSV)",
+  "notInCatalog": "በካታሎግ ውስጥ የለም"
 },
 
 

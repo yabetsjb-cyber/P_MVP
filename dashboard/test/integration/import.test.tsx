@@ -7,8 +7,10 @@ import { AuthProvider } from '@/context/AuthContext';
 import { LocaleProvider } from '@/context/LocaleContext';
 import { makeQueryClient } from '@/lib/queryClient';
 import enMessages from '@/messages/en.json';
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server';
 
-
+const API = 'http://localhost:3000';
 const renderPage = () => {
   const qc = makeQueryClient();
   return render(
@@ -103,4 +105,159 @@ describe('ImportPage', () => {
       await screen.findByText(/sync mode requires every row to be valid/i),
     ).toBeInTheDocument();
   });
+
+    it('renders the rows table with all rows after upload', async () => {
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    // Wait for rows to load
+    expect(await screen.findByText('Amoxil')).toBeInTheDocument();
+    expect(screen.getByText('Panadol')).toBeInTheDocument();
+    expect(screen.getByText('BadRow')).toBeInTheDocument();
+    expect(screen.getByText('UnknownDrug')).toBeInTheDocument();
+  });
+
+  it('filter tabs trigger a refetch with the correct status param', async () => {
+    let lastUrl = '';
+    server.use(
+      http.get(`${API}/v1/pharmacy/imports/:id/rows`, ({ request }) => {
+        lastUrl = request.url;
+        return HttpResponse.json({ rows: [] });
+      }),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    await userEvent.click(screen.getByRole('tab', { name: /^errors$/i }));
+
+    await waitFor(() => {
+      expect(lastUrl).toContain('status=error');
+      expect(lastUrl).toContain('offset=0');
+    });
+  });
+
+  it('pagination next button advances the offset', async () => {
+    // Simulate a filter with 100 total rows so hasNext is true
+    server.use(
+      http.post(`${API}/v1/pharmacy/imports`, () => {
+        return HttpResponse.json(
+          {
+            import: {
+              id: 'imp-1',
+              filename: 'inventory.csv',
+              mode: 'update',
+              totalRows: 100,
+              okRows: 100,
+              errorRows: 0,
+              unmatchedRows: 0,
+              productsToUpdate: 100,
+              mergedRows: 0,
+              willMarkOutOfStock: null,
+              ignoredColumns: [],
+              expiresInHours: 24,
+            },
+            canCommit: true,
+            requiresAcceptSkipped: false,
+            syncBlockedReason: null,
+            problems: [],
+            problemsShown: 0,
+            sample: [],
+          },
+          { status: 201 },
+        );
+      }),
+      http.get(`${API}/v1/pharmacy/imports/:id/rows`, ({ request }) => {
+        const url = new URL(request.url);
+        const offset = Number(url.searchParams.get('offset') ?? '0');
+        const rows = Array.from({ length: 50 }, (_, i) => ({
+          row_number: offset + i + 1,
+          status: 'ok' as const,
+          raw: { brand_name: `Item ${offset + i + 1}` },
+          errors: [],
+          warnings: [],
+          medicine_id: `med-${offset + i}`,
+          quantity: 10,
+          expiry_date: '2027-12-31',
+          suggestions: null,
+        }));
+        return HttpResponse.json({ rows });
+      }),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+    await screen.findByText('Item 1');
+
+    await userEvent.click(screen.getByRole('button', { name: /^next$/i }));
+
+    expect(await screen.findByText('Item 51')).toBeInTheDocument();
+    expect(screen.queryByText('Item 1')).not.toBeInTheDocument();
+  });
+
+  it('shows empty state when filter returns no rows', async () => {
+    server.use(
+      http.get(`${API}/v1/pharmacy/imports/:id/rows`, () =>
+        HttpResponse.json({ rows: [] }),
+      ),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    expect(
+      await screen.findByText(/no rows match this filter/i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows Download errors button only when there are error rows', async () => {
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    // Default mock has 2 error rows
+    expect(
+      await screen.findByRole('button', { name: /download errors/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('unmatched rows display the brand name from raw, not the medicine id', async () => {
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    // The unmatched row in the mock has raw.brand_name = "UnknownDrug"
+    expect(await screen.findByText('UnknownDrug')).toBeInTheDocument();
+    expect(screen.getByText(/^not in catalog/i)).toBeInTheDocument();
+  });
+
+
 });

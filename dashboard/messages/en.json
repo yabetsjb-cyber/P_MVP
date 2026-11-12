@@ -179,7 +179,21 @@
   "expiresIn": "Preview expires in {hours} hours.",
   "continue": "Continue to review",
   "startOver": "Start over",
-  "comingSoonStep3": "Commit lands in the next step."
+  "comingSoonStep3": "Commit lands in the next step.",
+  "rowsTitle": "Rows",
+  "filterAll": "All",
+  "filterErrors": "Errors",
+  "filterUnmatched": "Unmatched",
+  "filterOk": "Ready",
+  "rowStatusOk": "OK",
+  "rowStatusError": "Error",
+  "rowStatusUnmatched": "Unmatched",
+  "noRowsInFilter": "No rows match this filter.",
+  "pageShowing": "Showing {from}–{to} of {total}",
+  "prevPage": "Previous",
+  "nextPage": "Next",
+  "downloadErrors": "Download errors (CSV)",
+  "notInCatalog": "Not in catalog"
 },
 
 

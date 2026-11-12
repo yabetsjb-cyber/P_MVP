@@ -279,6 +279,20 @@ export const handlers = [
   }),
 
 
+    http.get(`${API}/v1/pharmacy/imports/:id/rows`, ({ request }) => {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const allRows = [
+      { row_number: 1, status: 'ok' as const, raw: { brand_name: 'Amoxil', strength: '500mg' }, errors: [], warnings: [], medicine_id: 'med-amoxil', quantity: 20, expiry_date: '2027-12-31', suggestions: null },
+      { row_number: 2, status: 'ok' as const, raw: { brand_name: 'Panadol', strength: '500mg' }, errors: [], warnings: [], medicine_id: 'med-panadol', quantity: 30, expiry_date: '2027-12-31', suggestions: null },
+      { row_number: 3, status: 'error' as const, raw: { brand_name: 'BadRow' }, errors: [{ field: 'quantity', message: 'Must be a whole number' }], warnings: [], medicine_id: null, quantity: null, expiry_date: null, suggestions: null },
+      { row_number: 8, status: 'unmatched' as const, raw: { brand_name: 'UnknownDrug', strength: '10mg' }, errors: [], warnings: [], medicine_id: null, quantity: 5, expiry_date: null, suggestions: [{ id: 'med-x', brand_name: 'Amoxil', generic_name: 'Amoxicillin', strength: '500mg', pack_size: '16 caps' }] },
+    ];
+    const filtered = status ? allRows.filter((r) => r.status === status) : allRows;
+    return HttpResponse.json({ rows: filtered });
+  }),
+
+
   // ---- Reservations: summary (badge, 11.3b) ----
   http.get(`${API}/v1/pharmacy/reservations/summary`, () =>
     HttpResponse.json({
