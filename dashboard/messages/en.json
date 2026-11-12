@@ -130,7 +130,14 @@
   "handingOver": "Handing over…",
   "fulfilErrorWrongCode": "The code does not match this reservation."
 },
-  "stock": {
+  
+  "sound": {
+    "enable": "Enable sound alerts",
+    "disable": "Disable sound alerts",
+    "titleOff": "Sound alerts off",
+    "titleOn": "Sound alerts on"
+  },
+    "stock": {
     "title": "Stock",
     "empty": "No items in stock yet. Add your first item or import a CSV.",
     "search": "Search by brand, generic, or strength",

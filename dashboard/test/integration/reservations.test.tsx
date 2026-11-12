@@ -584,7 +584,23 @@ describe('ReservationsPage', () => {
   });
 
 
+  it('renders the sound toggle button in the header and persists the choice', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
 
+    const enableBtn = await screen.findByRole('button', {
+      name: /enable sound alerts/i,
+    });
+    expect(enableBtn).toBeInTheDocument();
+    expect(enableBtn).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(enableBtn);
+
+    expect(
+      await screen.findByRole('button', { name: /disable sound alerts/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(window.localStorage.getItem('medfinder.soundEnabled')).toBe('true');
+  });
 
 
 });

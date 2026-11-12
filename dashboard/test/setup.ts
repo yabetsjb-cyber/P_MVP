@@ -2,10 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import { server } from './mocks/server';
+import { installAudioContextMock } from './mocks/audio';
 
-// Router mocks must be created via vi.hoisted so the vi.mock factory
-// below can reference them. Exporting them here lets test files import
-// the same instances instead of reaching into the mocked module.
+// jsdom has no Web Audio API. Install the mock before any test runs so
+// hooks that create an AudioContext work.
+installAudioContextMock();
+
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
@@ -32,9 +34,14 @@ vi.mock('next/router', () => ({
 export { routerMocks };
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+
 afterEach(() => {
   cleanup();
   server.resetHandlers();
   vi.clearAllMocks();
+  if (typeof window !== 'undefined') {
+    window.localStorage.clear();
+  }
 });
+
 afterAll(() => server.close());
