@@ -193,4 +193,179 @@ describe('ReservationsPage', () => {
     // Dialog stays open so the pharmacist can see the error
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+    it('shows Decline button on both New and Active cards', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
+    expect(screen.getByRole('button', { name: /^decline$/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: /^active$/i }));
+    await screen.findByText('Panadol');
+    expect(screen.getByRole('button', { name: /^decline$/i })).toBeInTheDocument();
+  });
+
+  it('opens decline dialog with default out_of_stock reason and checkbox checked', async () => {
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(screen.getByRole('button', { name: /^decline$/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: /decline reservation/i }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('combobox')).toHaveValue('out_of_stock');
+    expect(within(dialog).getByRole('checkbox')).toBeChecked();
+    expect(
+      within(dialog).getByText(/also mark out of stock/i),
+    ).toBeInTheDocument();
+  });
+
+  it('cancels decline dialog without sending a request', async () => {
+    let posted = false;
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/:id/decline`, () => {
+        posted = true;
+        return HttpResponse.json({ reservation: {}, markedOutOfStock: true });
+      }),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(screen.getByRole('button', { name: /^decline$/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^cancel$/i }),
+    );
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(posted).toBe(false);
+  });
+
+  it('sends POST decline with default { reason: out_of_stock }', async () => {
+    let captured: unknown = null;
+    server.use(
+      http.post(
+        `${API}/v1/pharmacy/reservations/:id/decline`,
+        async ({ request }) => {
+          captured = await request.json();
+          return HttpResponse.json({
+            reservation: { ...reservationFixtures.pending, status: 'declined' },
+            markedOutOfStock: true,
+          });
+        },
+      ),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(screen.getByRole('button', { name: /^decline$/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^decline reservation$/i }),
+    );
+
+    await waitFor(() => {
+      expect(captured).toEqual({ reason: 'out_of_stock' });
+    });
+  });
+
+  it('sends alsoMarkOutOfStock:false when checkbox is unchecked', async () => {
+    let captured: unknown = null;
+    server.use(
+      http.post(
+        `${API}/v1/pharmacy/reservations/:id/decline`,
+        async ({ request }) => {
+          captured = await request.json();
+          return HttpResponse.json({
+            reservation: { ...reservationFixtures.pending, status: 'declined' },
+            markedOutOfStock: false,
+          });
+        },
+      ),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(screen.getByRole('button', { name: /^decline$/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('checkbox'));
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^decline reservation$/i }),
+    );
+
+    await waitFor(() => {
+      expect(captured).toEqual({
+        reason: 'out_of_stock',
+        alsoMarkOutOfStock: false,
+      });
+    });
+  });
+
+  it('sends { reason: other, note } when other is chosen', async () => {
+    let captured: unknown = null;
+    server.use(
+      http.post(
+        `${API}/v1/pharmacy/reservations/:id/decline`,
+        async ({ request }) => {
+          captured = await request.json();
+          return HttpResponse.json({
+            reservation: { ...reservationFixtures.pending, status: 'declined' },
+            markedOutOfStock: false,
+          });
+        },
+      ),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(screen.getByRole('button', { name: /^decline$/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByRole('combobox'), 'other');
+    await userEvent.type(
+      within(dialog).getByRole('textbox'),
+      'Customer asked to cancel',
+    );
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^decline reservation$/i }),
+    );
+
+    await waitFor(() => {
+      expect(captured).toEqual({
+        reason: 'other',
+        note: 'Customer asked to cancel',
+      });
+    });
+  });
+
+  it('blocks submit with inline error when other is chosen but note is empty', async () => {
+    let posted = false;
+    server.use(
+      http.post(`${API}/v1/pharmacy/reservations/:id/decline`, () => {
+        posted = true;
+        return HttpResponse.json({ reservation: {}, markedOutOfStock: false });
+      }),
+    );
+
+    renderPage();
+    await screen.findByText('Amoxil');
+    await userEvent.click(screen.getByRole('button', { name: /^decline$/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByRole('combobox'), 'other');
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: /^decline reservation$/i }),
+    );
+
+    expect(
+      await screen.findByText(/a note is required for the other reason/i),
+    ).toBeInTheDocument();
+    expect(posted).toBe(false);
+  });
+
+
+
 });

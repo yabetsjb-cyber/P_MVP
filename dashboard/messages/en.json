@@ -99,7 +99,22 @@
   "confirming": "Confirming…",
   "confirmErrorResponsePassed": "The response window has already passed.",
   "confirmErrorInvalidState": "This reservation is no longer pending.",
-  "confirmErrorNotVerified": "Your pharmacy is not verified."
+  "confirmErrorNotVerified": "Your pharmacy is not verified.",
+  "declineButton": "Decline",
+  "declineTitle": "Decline reservation",
+  "declineReasonLabel": "Reason",
+  "declineReasonOutOfStock": "Out of stock",
+  "declineReasonClosed": "Closed",
+  "declineReasonOther": "Other",
+  "declineNoteLabel": "Note",
+  "declineNoteHint": "Required when reason is Other",
+  "declineAlsoMarkOutOfStock": "Also mark out of stock",
+  "declineAlsoMarkOutOfStockHint": "Hides it from customer search",
+  "declining": "Declining…",
+  "declineConfirmButton": "Decline reservation",
+  "declineErrorInvalidState": "This reservation is no longer active.",
+  "declineErrorNoteRequired": "A note is required for the Other reason.",
+  "declineSuccessMarkedOut": "Reservation declined. Item also marked out of stock."
 },
   "stock": {
     "title": "Stock",

@@ -251,6 +251,26 @@ export const handlers = [
       },
     });
   }),
+
+    http.post(`${API}/v1/pharmacy/reservations/:id/decline`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      reason?: string;
+      note?: string;
+      alsoMarkOutOfStock?: boolean;
+    };
+    return HttpResponse.json({
+      reservation: {
+        ...reservationFixtures.pending,
+        status: 'declined',
+        declineReason: body.reason ?? 'out_of_stock',
+        closedAt: new Date().toISOString(),
+      },
+      markedOutOfStock:
+        body.reason === 'out_of_stock' && body.alsoMarkOutOfStock !== false,
+    });
+  }),
+
+
 ];
 
 // ============================================================

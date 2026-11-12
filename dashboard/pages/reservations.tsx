@@ -40,6 +40,11 @@ interface ListResponse {
   reservations: Reservation[];
 }
 
+interface DeclineResponse {
+  reservation: Reservation;
+  markedOutOfStock: boolean;
+}
+
 const TABS: {
   key: TabKey;
   scope: Scope;
@@ -57,6 +62,7 @@ export default function ReservationsPage() {
   const tCommon = useTranslations('common');
   const [tab, setTab] = useState<TabKey>('new');
   const [confirming, setConfirming] = useState<Reservation | null>(null);
+  const [declining, setDeclining] = useState<Reservation | null>(null);
 
   const currentTab = TABS.find((x) => x.key === tab) ?? TABS[0];
 
@@ -126,6 +132,7 @@ export default function ReservationsPage() {
               key={r.id}
               reservation={r}
               onConfirm={r.status === 'requested' ? () => setConfirming(r) : undefined}
+              onDecline={() => setDeclining(r)}
             />
           ))}
         </ul>
@@ -137,6 +144,13 @@ export default function ReservationsPage() {
           onClose={() => setConfirming(null)}
         />
       )}
+
+      {declining && (
+        <DeclineDialog
+          reservation={declining}
+          onClose={() => setDeclining(null)}
+        />
+      )}
     </AppShell>
   );
 }
@@ -144,9 +158,11 @@ export default function ReservationsPage() {
 function ReservationCard({
   reservation: r,
   onConfirm,
+  onDecline,
 }: {
   reservation: Reservation;
   onConfirm?: () => void;
+  onDecline: () => void;
 }) {
   const t = useTranslations('reservations');
 
@@ -201,8 +217,8 @@ function ReservationCard({
         )}
       </div>
 
-      {onConfirm && (
-        <div className="flex justify-end pt-1">
+      <div className="flex justify-end gap-2 pt-1">
+        {onConfirm && (
           <button
             type="button"
             onClick={onConfirm}
@@ -210,8 +226,15 @@ function ReservationCard({
           >
             {t('confirmButton')}
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={onDecline}
+          className="text-xs px-3 py-1.5 rounded border border-danger-500 text-danger-600 hover:bg-danger-50 focus:outline-none focus:ring-2 focus:ring-danger-500"
+        >
+          {t('declineButton')}
+        </button>
+      </div>
     </li>
   );
 }
@@ -347,6 +370,186 @@ function ConfirmDialog({
             className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
           >
             {submitting ? t('confirming') : t('confirmButton')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeclineDialog({
+  reservation,
+  onClose,
+}: {
+  reservation: Reservation;
+  onClose: () => void;
+}) {
+  const t = useTranslations('reservations');
+  const tCommon = useTranslations('common');
+  const queryClient = useQueryClient();
+
+  const [reason, setReason] = useState<'out_of_stock' | 'closed' | 'other'>('out_of_stock');
+  const [note, setNote] = useState('');
+  const [alsoMarkOutOfStock, setAlsoMarkOutOfStock] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !submitting) onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [submitting, onClose]);
+
+  const onSubmit = async () => {
+    setError(null);
+
+    if (reason === 'other' && note.trim().length < 3) {
+      setError(t('declineErrorNoteRequired'));
+      return;
+    }
+
+    const body: {
+      reason: string;
+      note?: string;
+      alsoMarkOutOfStock?: boolean;
+    } = { reason };
+
+    if (reason === 'other') {
+      body.note = note.trim();
+    } else if (reason === 'out_of_stock') {
+      if (!alsoMarkOutOfStock) body.alsoMarkOutOfStock = false;
+    }
+
+    setSubmitting(true);
+    const result = await api<DeclineResponse>(
+      `/v1/pharmacy/reservations/${reservation.id}/decline`,
+      { method: 'POST', body },
+    );
+    setSubmitting(false);
+
+    if (!result.ok) {
+      if (result.error.kind === 'conflict' && result.error.code === 'INVALID_STATE') {
+        setError(t('declineErrorInvalidState'));
+      } else if (result.error.kind === 'validation' && result.error.fields.note) {
+        setError(result.error.fields.note);
+      } else {
+        setError(errorMessage(result.error));
+      }
+      await queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      return;
+    }
+
+    const invalidations: Promise<unknown>[] = [
+      queryClient.invalidateQueries({ queryKey: ['reservations'] }),
+      queryClient.invalidateQueries({ queryKey: ['reservations-summary'] }),
+    ];
+    if (result.data.markedOutOfStock) {
+      invalidations.push(queryClient.invalidateQueries({ queryKey: ['stock'] }));
+    }
+    await Promise.all(invalidations);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onClose();
+      }}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="decline-dialog-title"
+        className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4"
+      >
+        <h2 id="decline-dialog-title" className="text-lg font-semibold">
+          {t('declineTitle')}
+        </h2>
+
+        <p className="text-sm font-medium text-gray-800">
+          {reservation.medicine.brandName} · {reservation.medicine.strength}
+        </p>
+        <p className="text-sm text-gray-600">
+          {reservation.customer.name} · {t('qty', { count: reservation.qty })}
+        </p>
+
+        <label className="block">
+          <span className="text-sm font-medium">{t('declineReasonLabel')}</span>
+          <select
+            value={reason}
+            onChange={(e) => setReason(e.target.value as typeof reason)}
+            disabled={submitting}
+            autoFocus
+            className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
+          >
+            <option value="out_of_stock">{t('declineReasonOutOfStock')}</option>
+            <option value="closed">{t('declineReasonClosed')}</option>
+            <option value="other">{t('declineReasonOther')}</option>
+          </select>
+        </label>
+
+        {reason === 'other' && (
+          <label className="block">
+            <span className="text-sm font-medium">{t('declineNoteLabel')}</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              disabled={submitting}
+              rows={3}
+              className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
+            />
+            <span className="text-xs text-gray-500 mt-1 block">
+              {t('declineNoteHint')}
+            </span>
+          </label>
+        )}
+
+        {reason === 'out_of_stock' && (
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={alsoMarkOutOfStock}
+              onChange={(e) => setAlsoMarkOutOfStock(e.target.checked)}
+              disabled={submitting}
+              className="mt-1 rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
+            />
+            <span>
+              <span className="text-sm font-medium block">
+                {t('declineAlsoMarkOutOfStock')}
+              </span>
+              <span className="text-xs text-gray-500 block">
+                {t('declineAlsoMarkOutOfStockHint')}
+              </span>
+            </span>
+          </label>
+        )}
+
+        {error && (
+          <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {tCommon('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting}
+            className="text-sm px-3 py-1.5 rounded bg-danger-600 text-white hover:bg-danger-500 disabled:opacity-50"
+          >
+            {submitting ? t('declining') : t('declineConfirmButton')}
           </button>
         </div>
       </div>

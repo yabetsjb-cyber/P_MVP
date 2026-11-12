@@ -98,7 +98,22 @@
   "confirming": "በማረጋገጥ ላይ…",
   "confirmErrorResponsePassed": "የምላሽ ጊዜው አልፏል።",
   "confirmErrorInvalidState": "ይህ ቦታ ማስያዣ ከአሁን በኋላ በመጠባበቅ ላይ አይደለም።",
-  "confirmErrorNotVerified": "ፋርማሲዎ አልተረጋገጠም።"
+  "confirmErrorNotVerified": "ፋርማሲዎ አልተረጋገጠም።",
+  "declineButton": "አትቀበል",
+  "declineTitle": "ቦታ ማስያዣ አትቀበል",
+  "declineReasonLabel": "ምክንያት",
+  "declineReasonOutOfStock": "ከክምችት ውጪ",
+  "declineReasonClosed": "ተዘግቷል",
+  "declineReasonOther": "ሌላ",
+  "declineNoteLabel": "ማስታወሻ",
+  "declineNoteHint": "ምክንያቱ ሌላ ሲሆን ያስፈልጋል",
+  "declineAlsoMarkOutOfStock": "ከክምችት ውጪም አድርግ",
+  "declineAlsoMarkOutOfStockHint": "ከደንበኛ ፍለጋ ይደበቃል",
+  "declining": "በመቀበል ላይ…",
+  "declineConfirmButton": "ቦታ ማስያዣ አትቀበል",
+  "declineErrorInvalidState": "ይህ ቦታ ማስያዣ ከአሁን በኋላ ንቁ አይደለም።",
+  "declineErrorNoteRequired": "ለሌላ ምክንያት ማስታወሻ ያስፈልጋል።",
+  "declineSuccessMarkedOut": "ቦታ ማስያዣው ተከልክሏል። ንጥሉም ከክምችት ውጪ ሆኗል።"
 },
   "stock": {
     "title": "ክምችት",
