@@ -293,6 +293,26 @@ export const handlers = [
   }),
 
 
+
+    http.post(`${API}/v1/pharmacy/imports/:id/commit`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      acceptSkipped?: boolean;
+      confirmOutOfStockCount?: number;
+    };
+    const markedOut =
+      body.confirmOutOfStockCount !== undefined ? body.confirmOutOfStockCount : 0;
+    return HttpResponse.json({
+      committed: true,
+      summary: {
+        created: 3,
+        updated: 5,
+        markedOutOfStock: markedOut,
+        skippedRows: body.acceptSkipped ? 2 : 0,
+      },
+    });
+  }),
+
+
   // ---- Reservations: summary (badge, 11.3b) ----
   http.get(`${API}/v1/pharmacy/reservations/summary`, () =>
     HttpResponse.json({

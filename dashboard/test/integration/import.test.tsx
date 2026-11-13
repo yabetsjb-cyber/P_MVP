@@ -9,6 +9,7 @@ import { makeQueryClient } from '@/lib/queryClient';
 import enMessages from '@/messages/en.json';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
+import { routerMocks } from '../setup';
 
 const API = 'http://localhost:3000';
 const renderPage = () => {
@@ -259,5 +260,246 @@ describe('ImportPage', () => {
     expect(screen.getByText(/^not in catalog/i)).toBeInTheDocument();
   });
 
+
+    it('Continue to commit transitions to step 3', async () => {
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(
+      await screen.findByRole('heading', { name: /commit import/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('requires the acceptSkipped checkbox before committing when rows will be skipped', async () => {
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await screen.findByRole('heading', { name: /commit import/i });
+
+    // Commit button is disabled until checkbox is checked
+    const commitBtn = screen.getByRole('button', { name: /^commit import$/i });
+    expect(commitBtn).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('checkbox'));
+    expect(commitBtn).toBeEnabled();
+  });
+
+  it('sends acceptSkipped:true and shows success counts after commit', async () => {
+    let captured: unknown = null;
+    server.use(
+      http.post(`${API}/v1/pharmacy/imports/:id/commit`, async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json({
+          committed: true,
+          summary: { created: 3, updated: 5, markedOutOfStock: 0, skippedRows: 2 },
+        });
+      }),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await screen.findByRole('heading', { name: /commit import/i });
+
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: /^commit import$/i }));
+
+    await waitFor(() => {
+      expect(captured).toEqual({ acceptSkipped: true });
+    });
+    expect(await screen.findByText(/import complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 new products added/i)).toBeInTheDocument();
+    expect(screen.getByText(/5 products updated/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 rows skipped/i)).toBeInTheDocument();
+  });
+
+  it('sync mode shows the mark-out warning, requires checkbox, and sends confirmOutOfStockCount', async () => {
+    server.use(
+      http.post(`${API}/v1/pharmacy/imports`, () =>
+        HttpResponse.json(
+          {
+            import: {
+              id: 'imp-sync-1',
+              filename: 'inventory.csv',
+              mode: 'sync',
+              totalRows: 5,
+              okRows: 5,
+              errorRows: 0,
+              unmatchedRows: 0,
+              productsToUpdate: 5,
+              mergedRows: 0,
+              willMarkOutOfStock: 3,
+              ignoredColumns: [],
+              expiresInHours: 24,
+            },
+            canCommit: true,
+            requiresAcceptSkipped: false,
+            syncBlockedReason: null,
+            problems: [],
+            problemsShown: 0,
+            sample: [],
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    let captured: unknown = null;
+    server.use(
+      http.post(`${API}/v1/pharmacy/imports/:id/commit`, async ({ request }) => {
+        captured = await request.json();
+        return HttpResponse.json({
+          committed: true,
+          summary: { created: 0, updated: 2, markedOutOfStock: 3, skippedRows: 0 },
+        });
+      }),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(screen.getByRole('radio', { name: /sync —/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await screen.findByRole('heading', { name: /commit import/i });
+
+    // Mark-out warning appears
+    expect(
+      await screen.findByText(/i understand 3 products will be marked out of stock/i),
+    ).toBeInTheDocument();
+    const commitBtn = screen.getByRole('button', { name: /^commit import$/i });
+    expect(commitBtn).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('checkbox'));
+    expect(commitBtn).toBeEnabled();
+    await userEvent.click(commitBtn);
+
+    await waitFor(() => {
+      expect(captured).toEqual({ confirmOutOfStockCount: 3 });
+    });
+  });
+
+  it('shows inline error when server returns CONFIRM_OUT_OF_STOCK_COUNT', async () => {
+    server.use(
+      http.post(`${API}/v1/pharmacy/imports`, () =>
+        HttpResponse.json(
+          {
+            import: {
+              id: 'imp-sync-1',
+              filename: 'inventory.csv',
+              mode: 'sync',
+              totalRows: 5,
+              okRows: 5,
+              errorRows: 0,
+              unmatchedRows: 0,
+              productsToUpdate: 5,
+              mergedRows: 0,
+              willMarkOutOfStock: 3,
+              ignoredColumns: [],
+              expiresInHours: 24,
+            },
+            canCommit: true,
+            requiresAcceptSkipped: false,
+            syncBlockedReason: null,
+            problems: [],
+            problemsShown: 0,
+            sample: [],
+          },
+          { status: 201 },
+        ),
+      ),
+      http.post(`${API}/v1/pharmacy/imports/:id/commit`, () =>
+        HttpResponse.json(
+          { error: 'CONFIRM_OUT_OF_STOCK_COUNT', willMarkOutOfStock: 7 },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(screen.getByRole('radio', { name: /sync —/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await screen.findByRole('heading', { name: /commit import/i });
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: /^commit import$/i }));
+
+    expect(
+      await screen.findByText(/out-of-stock count changed/i),
+    ).toBeInTheDocument();
+    // Still on step 3
+    expect(screen.getByRole('heading', { name: /commit import/i })).toBeInTheDocument();
+  });
+
+  it('shows inline error when server returns ALREADY_COMMITTED', async () => {
+    server.use(
+      http.post(`${API}/v1/pharmacy/imports/:id/commit`, () =>
+        HttpResponse.json({ error: 'ALREADY_COMMITTED' }, { status: 409 }),
+      ),
+    );
+
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await screen.findByRole('heading', { name: /commit import/i });
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: /^commit import$/i }));
+
+    expect(
+      await screen.findByText(/already been committed/i),
+    ).toBeInTheDocument();
+  });
+
+  it('Back to stock button on success navigates to /stock', async () => {
+    renderPage();
+    const input = await screen.findByLabelText(/csv file/i);
+    await userEvent.upload(input, makeCsv());
+    await userEvent.click(
+      screen.getByRole('button', { name: /upload and preview/i }),
+    );
+    await screen.findByRole('heading', { name: /preview summary/i });
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await screen.findByRole('heading', { name: /commit import/i });
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: /^commit import$/i }));
+
+    await screen.findByText(/import complete/i);
+    await userEvent.click(screen.getByRole('button', { name: /back to stock/i }));
+
+    await waitFor(() => {
+      expect(routerMocks.push).toHaveBeenCalledWith('/stock');
+    });
+  });
 
 });

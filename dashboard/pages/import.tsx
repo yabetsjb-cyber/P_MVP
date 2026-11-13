@@ -1,5 +1,6 @@
 import { useState, FormEvent, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { AppShell } from '@/components/AppShell';
 import { useAuthGuard } from '@/lib/useAuthGuard';
@@ -55,12 +56,28 @@ interface RowsResponse {
   rows: ImportRow[];
 }
 
+interface CommitSummary {
+  created: number;
+  updated: number;
+  markedOutOfStock: number;
+  skippedRows: number;
+}
+
+interface CommitResponse {
+  committed: true;
+  summary: CommitSummary;
+}
+
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PAGE_SIZE = 50;
 
 export default function ImportPage() {
+  // ============ ALL HOOKS FIRST ============
   const auth = useAuthGuard();
   const t = useTranslations('import');
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
   const [step, setStep] = useState<Step>(1);
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>('update');
@@ -71,6 +88,13 @@ export default function ImportPage() {
   const [rowFilter, setRowFilter] = useState<RowFilter>('all');
   const [rowOffset, setRowOffset] = useState(0);
   const [downloading, setDownloading] = useState(false);
+
+  // Step 3 state
+  const [acceptSkipped, setAcceptSkipped] = useState(false);
+  const [confirmMarkOut, setConfirmMarkOut] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [commitResult, setCommitResult] = useState<CommitSummary | null>(null);
 
   const rowsQuery = useQuery({
     queryKey: ['import-rows', preview?.import.id, rowFilter, rowOffset],
@@ -84,7 +108,7 @@ export default function ImportPage() {
     staleTime: 30_000,
   });
 
-    const filterTotal = useMemo(() => {
+  const filterTotal = useMemo(() => {
     if (!preview) return 0;
     switch (rowFilter) {
       case 'error':
@@ -98,8 +122,11 @@ export default function ImportPage() {
     }
   }, [preview, rowFilter]);
 
+  // ============ GUARD ============
   if (auth.status !== 'verified') return null;
 
+  // ============ DERIVED ============
+  const isSuccess = commitResult !== null;
   const rows = rowsQuery.data?.ok ? rowsQuery.data.data.rows : [];
   const rowsLoading = rowsQuery.isLoading;
 
@@ -108,6 +135,17 @@ export default function ImportPage() {
   const hasPrev = rowOffset > 0;
   const hasNext = showingTo < filterTotal;
 
+  const skippedCount = preview
+    ? preview.import.errorRows + preview.import.unmatchedRows
+    : 0;
+  const markOutCount = preview?.import.willMarkOutOfStock ?? 0;
+
+  const commitDisabled =
+    committing ||
+    (preview?.requiresAcceptSkipped === true && !acceptSkipped) ||
+    (preview?.import.mode === 'sync' && markOutCount > 0 && !confirmMarkOut);
+
+  // ============ HANDLERS ============
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null);
     setUploadError(null);
@@ -170,6 +208,11 @@ export default function ImportPage() {
     setMode('update');
     setRowFilter('all');
     setRowOffset(0);
+    setAcceptSkipped(false);
+    setConfirmMarkOut(false);
+    setCommitting(false);
+    setCommitError(null);
+    setCommitResult(null);
   };
 
   const changeFilter = (f: RowFilter) => {
@@ -182,7 +225,6 @@ export default function ImportPage() {
     setDownloading(true);
     const all: ImportRow[] = [];
     let offset = 0;
-    // Page through the error rows. Bounded by the actual error count.
     while (true) {
       const res = await api<RowsResponse>(
         `/v1/pharmacy/imports/${preview.import.id}/rows?status=error&limit=100&offset=${offset}`,
@@ -201,12 +243,62 @@ export default function ImportPage() {
     setDownloading(false);
   };
 
+  const goToCommit = () => {
+    setAcceptSkipped(false);
+    setConfirmMarkOut(false);
+    setCommitError(null);
+    setStep(3);
+  };
+
+  const onCommit = async () => {
+    if (!preview) return;
+    setCommitting(true);
+    setCommitError(null);
+
+    const body: { acceptSkipped?: boolean; confirmOutOfStockCount?: number } = {};
+    if (preview.requiresAcceptSkipped) body.acceptSkipped = true;
+    if (preview.import.mode === 'sync' && preview.import.willMarkOutOfStock !== null) {
+      body.confirmOutOfStockCount = preview.import.willMarkOutOfStock;
+    }
+
+    const result = await api<CommitResponse>(
+      `/v1/pharmacy/imports/${preview.import.id}/commit`,
+      { method: 'POST', body },
+    );
+
+    setCommitting(false);
+
+    if (!result.ok) {
+      if (result.error.kind === 'conflict') {
+        const code = result.error.code;
+        if (code === 'ALREADY_COMMITTED') setCommitError(t('errorAlreadyCommitted'));
+        else if (code === 'PREVIEW_EXPIRED') setCommitError(t('errorPreviewExpired'));
+        else if (code === 'SYNC_REQUIRES_CLEAN_FILE') setCommitError(t('errorSyncBlocked'));
+        else if (code === 'SKIPPED_ROWS_NOT_ACCEPTED') setCommitError(t('errorSkippedNotAccepted'));
+        else if (code === 'CONFIRM_OUT_OF_STOCK_COUNT') setCommitError(t('errorConfirmMismatch'));
+        else setCommitError(errorMessage(result.error));
+      } else if (result.error.kind === 'validation') {
+        setCommitError(t('errorNothingToCommit'));
+      } else {
+        setCommitError(errorMessage(result.error));
+      }
+      return;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['stock'] });
+    setCommitResult(result.data.summary);
+  };
+
+  const goToStock = () => {
+    router.push('/stock');
+  };
+
   return (
     <AppShell>
       <h1 className="text-lg font-semibold mb-1">{t('title')}</h1>
-      <p className="text-sm text-gray-600 mb-6">{t('subtitle')}</p>
+      {!isSuccess && <p className="text-sm text-gray-600 mb-6">{t('subtitle')}</p>}
 
-      <StepIndicator step={step} />
+      <StepIndicator step={step} isComplete={isSuccess} />
 
       {step === 1 && (
         <form
@@ -445,11 +537,150 @@ export default function ImportPage() {
             </button>
             <button
               type="button"
-              disabled
-              title={t('comingSoonStep3')}
-              className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white disabled:opacity-50"
+              onClick={goToCommit}
+              disabled={!preview.canCommit}
+              className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
             >
               {t('continue')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && preview && !isSuccess && (
+        <div className="space-y-4 max-w-2xl">
+          <div className="bg-white rounded-lg border p-6 space-y-4">
+            <h2 className="text-base font-semibold">{t('step3Title')}</h2>
+            <p className="text-sm text-gray-600">{t('step3Subtitle')}</p>
+
+            <div className="text-xs text-gray-600 space-y-0.5 pt-2 border-t pt-3">
+              <div>{t('summaryFilename', { filename: preview.import.filename })}</div>
+              <div>
+                {preview.import.mode === 'sync'
+                  ? t('summaryModeSync')
+                  : t('summaryModeUpdate')}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t pt-3">
+              <div className="text-sm font-medium mb-2">{t('commitSummaryTitle')}</div>
+              <ul className="text-sm space-y-1">
+                <li>{t('commitSummaryProducts', { count: preview.import.productsToUpdate })}</li>
+                {skippedCount > 0 && (
+                  <li className="text-gray-600">
+                    {t('commitSummarySkipped', { count: skippedCount })}
+                  </li>
+                )}
+                {preview.import.mode === 'sync' && markOutCount > 0 && (
+                  <li className="text-amber-700">
+                    {t('summaryWillMarkOutOfStock', { count: markOutCount })}
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            {preview.requiresAcceptSkipped && (
+              <label className="flex items-start gap-2 pt-3 border-t">
+                <input
+                  type="checkbox"
+                  checked={acceptSkipped}
+                  onChange={(e) => setAcceptSkipped(e.target.checked)}
+                  disabled={committing}
+                  className="mt-1"
+                />
+                <span className="text-sm">
+                  {t('acceptSkippedLabel', { count: skippedCount })}
+                </span>
+              </label>
+            )}
+
+            {preview.import.mode === 'sync' && markOutCount > 0 && (
+              <label className="flex items-start gap-2 pt-3 border-t">
+                <input
+                  type="checkbox"
+                  checked={confirmMarkOut}
+                  onChange={(e) => setConfirmMarkOut(e.target.checked)}
+                  disabled={committing}
+                  className="mt-1"
+                />
+                <span className="text-sm text-amber-800">
+                  {t('confirmMarkOutOfStockLabel', { count: markOutCount })}
+                </span>
+              </label>
+            )}
+
+            {commitError && (
+              <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
+                {commitError}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              disabled={committing}
+              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {t('backToReview')}
+            </button>
+            <button
+              type="button"
+              onClick={onCommit}
+              disabled={commitDisabled}
+              className="text-sm px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {committing ? t('committing') : t('commitButton')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isSuccess && commitResult && (
+        <div className="space-y-4 max-w-2xl">
+          <div className="bg-white rounded-lg border p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-success-500 text-white text-lg">
+                ✓
+              </span>
+              <h2 className="text-base font-semibold">{t('successTitle')}</h2>
+            </div>
+
+            <ul className="text-sm space-y-1 pt-2 border-t pt-3">
+              {commitResult.created > 0 && (
+                <li className="text-success-600">
+                  {t('successCreated', { count: commitResult.created })}
+                </li>
+              )}
+              {commitResult.updated > 0 && <li>{t('successUpdated', { count: commitResult.updated })}</li>}
+              {commitResult.markedOutOfStock > 0 && (
+                <li className="text-amber-700">
+                  {t('successMarkedOutOfStock', { count: commitResult.markedOutOfStock })}
+                </li>
+              )}
+              {commitResult.skippedRows > 0 && (
+                <li className="text-gray-600">
+                  {t('successSkipped', { count: commitResult.skippedRows })}
+                </li>
+              )}
+            </ul>
+          </div>
+
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={startOver}
+              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50"
+            >
+              {t('importAnother')}
+            </button>
+            <button
+              type="button"
+              onClick={goToStock}
+              className="text-sm px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700"
+            >
+              {t('backToStock')}
             </button>
           </div>
         </div>
@@ -458,7 +689,7 @@ export default function ImportPage() {
   );
 }
 
-function StepIndicator({ step }: { step: Step }) {
+function StepIndicator({ step, isComplete }: { step: Step; isComplete?: boolean }) {
   const t = useTranslations('import');
   const labels: Array<{ n: Step; key: 'step1' | 'step2' | 'step3' }> = [
     { n: 1, key: 'step1' },
@@ -468,8 +699,8 @@ function StepIndicator({ step }: { step: Step }) {
   return (
     <ol className="flex gap-4 mb-6 text-sm">
       {labels.map((l) => {
-        const done = step > l.n;
-        const active = step === l.n;
+        const done = isComplete || step > l.n;
+        const active = !isComplete && step === l.n;
         return (
           <li key={l.n} className="flex items-center gap-2">
             <span
