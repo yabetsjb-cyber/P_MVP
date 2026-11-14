@@ -310,6 +310,16 @@ export const handlers = [
         skippedRows: body.acceptSkipped ? 2 : 0,
       },
     });
+
+
+    
+
+
+
+
+
+
+
   }),
 
 
@@ -396,6 +406,27 @@ export const handlers = [
       },
     });
   }),
+
+
+    http.get(`${API}/v1/pharmacy/telegram`, () =>
+    HttpResponse.json({ botConfigured: true, links: [] }),
+  ),
+
+  http.post(`${API}/v1/pharmacy/telegram/link-token`, () =>
+    HttpResponse.json({
+      token: 'abc123token',
+      url: 'https://t.me/MedFinderBot?start=abc123token',
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    }),
+  ),
+
+  http.delete(`${API}/v1/pharmacy/telegram/:chatId`, () =>
+    HttpResponse.json({ ok: true }),
+  ),
+
+  http.post(`${API}/v1/pharmacy/telegram/test`, () =>
+    HttpResponse.json({ queuedTo: 1 }),
+  ),
 
 
 ];
