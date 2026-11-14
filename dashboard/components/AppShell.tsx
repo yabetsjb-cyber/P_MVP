@@ -5,6 +5,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { useAuth } from '@/context/AuthContext';
 import { useReservationBadge } from '@/lib/useReservationBadge';
 import { useReservationSound } from '@/lib/useReservationSound';
+import { LogOut } from 'lucide-react';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { pharmacy, user, status, logout } = useAuth();
@@ -16,40 +17,44 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sound = useReservationSound(count, dataReady);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-surface">
       <Sidebar reservationBadge={count} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
-          <div className="font-medium text-sm truncate">
-            {pharmacy?.name ?? '—'}
+      <div className="flex-1 flex flex-col min-w-0 pt-14 md:pt-0">
+        <header className="h-16 bg-surface/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 border-b border-gray-200/50">
+          <div>
+            <h2 className="font-semibold text-lg text-gray-900">{pharmacy?.name ?? '—'}</h2>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-5">
             {sound.supported && (
               <button
                 type="button"
                 onClick={sound.toggle}
                 aria-label={sound.enabled ? tSound('disable') : tSound('enable')}
                 aria-pressed={sound.enabled}
-                title={sound.enabled ? tSound('titleOn') : tSound('titleOff')}
-                className="text-sm border border-gray-300 rounded px-2 py-1 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className={`p-2 rounded-full transition-colors ${sound.enabled ? 'bg-accent-100 text-brand-600' : 'text-gray-400 hover:bg-gray-200'}`}
               >
                 {sound.enabled ? '🔔' : '🔕'}
               </button>
             )}
             <LanguageSwitcher />
-            <span className="hidden sm:inline text-sm text-gray-500 truncate max-w-[10rem]">
-              {user?.email}
-            </span>
+            <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
+              <span className="truncate max-w-[10rem]">{user?.email}</span>
+            </div>
             <button
               type="button"
               onClick={logout}
-              className="text-sm text-brand-600 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-1"
+              className="p-2 text-gray-500 hover:text-danger-600 hover:bg-danger-50 rounded-full transition-colors"
+              title={t('logout')}
             >
-              {t('logout')}
+              <LogOut size={18} />
             </button>
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6 min-w-0">{children}</main>
+        <main className="flex-1 p-4 sm:p-8">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );
