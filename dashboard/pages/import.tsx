@@ -2,9 +2,13 @@ import { useState, FormEvent, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
+import { UploadCloud, CheckCircle, ChevronRight } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { useAuthGuard } from '@/lib/useAuthGuard';
 import { api, errorMessage, ApiError } from '@/lib/api';
+import { Card } from '@/lib/ui/Card';
+import { Button } from '@/lib/ui/Button';
+import { StatusBadge } from '@/lib/ui/StatusBadge';
 import { rowsToCsv, downloadCsv } from '@/lib/csv';
 
 type Step = 1 | 2 | 3;
@@ -20,30 +24,11 @@ interface ImportRow {
   medicine_id: string | null;
   quantity: number | null;
   expiry_date: string | null;
-  suggestions: Array<{
-    id: string;
-    brand_name: string;
-    generic_name: string;
-    strength: string;
-    pack_size: string;
-  }> | null;
+  suggestions: Array<{ id: string; brand_name: string; generic_name: string; strength: string; pack_size: string; }> | null;
 }
 
 interface PreviewResponse {
-  import: {
-    id: string;
-    filename: string;
-    mode: Mode;
-    totalRows: number;
-    okRows: number;
-    errorRows: number;
-    unmatchedRows: number;
-    productsToUpdate: number;
-    mergedRows: number;
-    willMarkOutOfStock: number | null;
-    ignoredColumns: string[];
-    expiresInHours: number;
-  };
+  import: { id: string; filename: string; mode: Mode; totalRows: number; okRows: number; errorRows: number; unmatchedRows: number; productsToUpdate: number; mergedRows: number; willMarkOutOfStock: number | null; ignoredColumns: string[]; expiresInHours: number; };
   canCommit: boolean;
   requiresAcceptSkipped: boolean;
   syncBlockedReason: string | null;
@@ -52,21 +37,9 @@ interface PreviewResponse {
   sample: ImportRow[];
 }
 
-interface RowsResponse {
-  rows: ImportRow[];
-}
-
-interface CommitSummary {
-  created: number;
-  updated: number;
-  markedOutOfStock: number;
-  skippedRows: number;
-}
-
-interface CommitResponse {
-  committed: true;
-  summary: CommitSummary;
-}
+interface RowsResponse { rows: ImportRow[]; }
+interface CommitSummary { created: number; updated: number; markedOutOfStock: number; skippedRows: number; }
+interface CommitResponse { committed: true; summary: CommitSummary; }
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const PAGE_SIZE = 50;
@@ -88,8 +61,7 @@ export default function ImportPage() {
   const [rowFilter, setRowFilter] = useState<RowFilter>('all');
   const [rowOffset, setRowOffset] = useState(0);
   const [downloading, setDownloading] = useState(false);
-
-  // Step 3 state
+  
   const [acceptSkipped, setAcceptSkipped] = useState(false);
   const [confirmMarkOut, setConfirmMarkOut] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -100,9 +72,7 @@ export default function ImportPage() {
     queryKey: ['import-rows', preview?.import.id, rowFilter, rowOffset],
     queryFn: () => {
       const statusParam = rowFilter === 'all' ? '' : `status=${rowFilter}&`;
-      return api<RowsResponse>(
-        `/v1/pharmacy/imports/${preview!.import.id}/rows?${statusParam}limit=${PAGE_SIZE}&offset=${rowOffset}`,
-      );
+      return api<RowsResponse>(`/v1/pharmacy/imports/${preview!.import.id}/rows?${statusParam}limit=${PAGE_SIZE}&offset=${rowOffset}`);
     },
     enabled: auth.status === 'verified' && step === 2 && !!preview,
     staleTime: 30_000,
@@ -111,14 +81,10 @@ export default function ImportPage() {
   const filterTotal = useMemo(() => {
     if (!preview) return 0;
     switch (rowFilter) {
-      case 'error':
-        return preview.import.errorRows;
-      case 'unmatched':
-        return preview.import.unmatchedRows;
-      case 'ok':
-        return preview.import.okRows;
-      default:
-        return preview.import.totalRows;
+      case 'error': return preview.import.errorRows;
+      case 'unmatched': return preview.import.unmatchedRows;
+      case 'ok': return preview.import.okRows;
+      default: return preview.import.totalRows;
     }
   }, [preview, rowFilter]);
 
@@ -135,139 +101,62 @@ export default function ImportPage() {
   const hasPrev = rowOffset > 0;
   const hasNext = showingTo < filterTotal;
 
-  const skippedCount = preview
-    ? preview.import.errorRows + preview.import.unmatchedRows
-    : 0;
+  const skippedCount = preview ? preview.import.errorRows + preview.import.unmatchedRows : 0;
   const markOutCount = preview?.import.willMarkOutOfStock ?? 0;
 
-  const commitDisabled =
-    committing ||
-    (preview?.requiresAcceptSkipped === true && !acceptSkipped) ||
-    (preview?.import.mode === 'sync' && markOutCount > 0 && !confirmMarkOut);
+  const commitDisabled = committing || (preview?.requiresAcceptSkipped === true && !acceptSkipped) || (preview?.import.mode === 'sync' && markOutCount > 0 && !confirmMarkOut);
 
   // ============ HANDLERS ============
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFileError(null);
-    setUploadError(null);
+    setFileError(null); setUploadError(null);
     const f = e.target.files?.[0] ?? null;
-    if (!f) {
-      setFile(null);
-      return;
-    }
-    if (!f.name.toLowerCase().endsWith('.csv')) {
-      setFileError(t('errorFileType'));
-      setFile(null);
-      return;
-    }
-    if (f.size === 0) {
-      setFileError(t('errorFileEmpty'));
-      setFile(null);
-      return;
-    }
-    if (f.size > MAX_FILE_BYTES) {
-      setFileError(t('errorFileSizeTooLarge'));
-      setFile(null);
-      return;
-    }
+    if (!f) { setFile(null); return; }
+    if (!f.name.toLowerCase().endsWith('.csv')) { setFileError(t('errorFileType')); setFile(null); return; }
+    if (f.size === 0) { setFileError(t('errorFileEmpty')); setFile(null); return; }
+    if (f.size > MAX_FILE_BYTES) { setFileError(t('errorFileSizeTooLarge')); setFile(null); return; }
     setFile(f);
   };
 
   const onUpload = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!file) return;
-    setUploading(true);
-    setUploadError(null);
-
-    const form = new FormData();
-    form.append('file', file);
-
-    const result = await api<PreviewResponse>(
-      `/v1/pharmacy/imports?mode=${mode}`,
-      { method: 'POST', body: form },
-    );
-
+    e.preventDefault(); if (!file) return;
+    setUploading(true); setUploadError(null);
+    const form = new FormData(); form.append('file', file);
+    const result = await api<PreviewResponse>(`/v1/pharmacy/imports?mode=${mode}`, { method: 'POST', body: form });
     setUploading(false);
-
-    if (!result.ok) {
-      setUploadError(result.error);
-      return;
-    }
-
-    setPreview(result.data);
-    setStep(2);
-    setRowFilter('all');
-    setRowOffset(0);
+    if (!result.ok) { setUploadError(result.error); return; }
+    setPreview(result.data); setStep(2); setRowFilter('all'); setRowOffset(0);
   };
 
   const startOver = () => {
-    setStep(1);
-    setFile(null);
-    setFileError(null);
-    setUploadError(null);
-    setPreview(null);
-    setMode('update');
-    setRowFilter('all');
-    setRowOffset(0);
-    setAcceptSkipped(false);
-    setConfirmMarkOut(false);
-    setCommitting(false);
-    setCommitError(null);
-    setCommitResult(null);
+    setStep(1); setFile(null); setFileError(null); setUploadError(null); setPreview(null); setMode('update'); setRowFilter('all'); setRowOffset(0); setAcceptSkipped(false); setConfirmMarkOut(false); setCommitting(false); setCommitError(null); setCommitResult(null);
   };
 
-  const changeFilter = (f: RowFilter) => {
-    setRowFilter(f);
-    setRowOffset(0);
-  };
+  const changeFilter = (f: RowFilter) => { setRowFilter(f); setRowOffset(0); };
 
   const onDownloadErrors = async () => {
-    if (!preview) return;
-    setDownloading(true);
-    const all: ImportRow[] = [];
-    let offset = 0;
+    if (!preview) return; setDownloading(true); const all: ImportRow[] = []; let offset = 0;
     while (true) {
-      const res = await api<RowsResponse>(
-        `/v1/pharmacy/imports/${preview.import.id}/rows?status=error&limit=100&offset=${offset}`,
-      );
+      const res = await api<RowsResponse>(`/v1/pharmacy/imports/${preview.import.id}/rows?status=error&limit=100&offset=${offset}`);
       if (!res.ok) break;
       all.push(...res.data.rows);
       if (res.data.rows.length < 100) break;
       offset += 100;
     }
-    if (all.length > 0) {
-      downloadCsv(
-        `${preview.import.filename.replace(/\.csv$/i, '')}-errors.csv`,
-        rowsToCsv(all),
-      );
-    }
+    if (all.length > 0) downloadCsv(`${preview.import.filename.replace(/\.csv$/i, '')}-errors.csv`, rowsToCsv(all));
     setDownloading(false);
   };
 
-  const goToCommit = () => {
-    setAcceptSkipped(false);
-    setConfirmMarkOut(false);
-    setCommitError(null);
-    setStep(3);
-  };
+  const goToCommit = () => { setAcceptSkipped(false); setConfirmMarkOut(false); setCommitError(null); setStep(3); };
 
   const onCommit = async () => {
-    if (!preview) return;
-    setCommitting(true);
-    setCommitError(null);
-
+    if (!preview) return; setCommitting(true); setCommitError(null);
     const body: { acceptSkipped?: boolean; confirmOutOfStockCount?: number } = {};
     if (preview.requiresAcceptSkipped) body.acceptSkipped = true;
-    if (preview.import.mode === 'sync' && preview.import.willMarkOutOfStock !== null) {
-      body.confirmOutOfStockCount = preview.import.willMarkOutOfStock;
-    }
-
-    const result = await api<CommitResponse>(
-      `/v1/pharmacy/imports/${preview.import.id}/commit`,
-      { method: 'POST', body },
-    );
-
+    if (preview.import.mode === 'sync' && preview.import.willMarkOutOfStock !== null) body.confirmOutOfStockCount = preview.import.willMarkOutOfStock;
+    
+    const result = await api<CommitResponse>(`/v1/pharmacy/imports/${preview.import.id}/commit`, { method: 'POST', body });
     setCommitting(false);
-
+    
     if (!result.ok) {
       if (result.error.kind === 'conflict') {
         const code = result.error.code;
@@ -284,119 +173,111 @@ export default function ImportPage() {
       }
       return;
     }
-
     await queryClient.invalidateQueries({ queryKey: ['stock'] });
     setCommitResult(result.data.summary);
   };
 
-  const goToStock = () => {
-    router.push('/stock');
-  };
-
   return (
     <AppShell>
-      <h1 className="text-lg font-semibold mb-1">{t('title')}</h1>
-      {!isSuccess && <p className="text-sm text-gray-600 mb-6">{t('subtitle')}</p>}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-brand-600">{t('title')}</h1>
+        {!isSuccess && <p className="text-sm text-gray-500 mt-1">{t('subtitle')}</p>}
+      </div>
 
       <StepIndicator step={step} isComplete={isSuccess} />
 
       {step === 1 && (
-        <form
-          onSubmit={onUpload}
-          className="bg-white rounded-lg border p-6 max-w-2xl space-y-4"
-        >
+        <Card className="p-8 max-w-2xl space-y-8">
           <div>
-            <label className="block">
-              <span className="text-sm font-medium">{t('fileLabel')}</span>
-              <input
-                type="file"
-                onChange={onFileChange}
-                disabled={uploading}
-                className="mt-1 block w-full text-sm file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
-              />
-            </label>
-            <p className="text-xs text-gray-500 mt-1">{t('fileHint')}</p>
-            {fileError && (
-              <p role="alert" className="text-xs text-danger-600 mt-1">
-                {fileError}
-              </p>
-            )}
+            <label className="block mb-2 text-sm font-medium text-gray-700">{t('fileLabel')}</label>
+            <div className="flex items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <UploadCloud className="w-8 h-8 mb-3 text-gray-400" />
+                  <p className="mb-2 text-sm text-gray-500"><span className="font-semibold text-brand-600">Click to upload</span> or drag and drop</p>
+                  <p className="text-xs text-gray-500">{t('fileHint')}</p>
+                  {file && <p className="text-sm font-medium text-brand-600 mt-2">{file.name}</p>}
+                </div>
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  onChange={onFileChange} 
+                  disabled={uploading} 
+                  aria-label={t('fileLabel')} 
+                />
+              </label>
+            </div>
+            {fileError && <p role="alert" className="text-xs text-danger-600 mt-2">{fileError}</p>}
           </div>
 
           <fieldset>
-            <legend className="text-sm font-medium mb-1">{t('modeLabel')}</legend>
-            <label className="flex items-start gap-2 mb-2">
-              <input
-                type="radio"
-                name="mode"
-                value="update"
-                checked={mode === 'update'}
-                onChange={() => setMode('update')}
-                disabled={uploading}
-                className="mt-1"
-              />
-              <span className="text-sm">{t('modeUpdate')}</span>
-            </label>
-            <label className="flex items-start gap-2">
-              <input
-                type="radio"
-                name="mode"
-                value="sync"
-                checked={mode === 'sync'}
-                onChange={() => setMode('sync')}
-                disabled={uploading}
-                className="mt-1"
-              />
-              <span className="text-sm">{t('modeSync')}</span>
-            </label>
+            <legend className="text-sm font-medium text-gray-700 mb-3">{t('modeLabel')}</legend>
+            <div className="space-y-3">
+              <label className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${mode === 'update' ? 'border-brand-500 bg-brand-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" name="mode" value="update" checked={mode === 'update'} onChange={() => setMode('update')} className="mt-1" />
+                <div>
+                  <span className="block text-sm font-medium text-gray-900">{t('modeUpdate')}</span>
+                </div>
+              </label>
+              <label className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${mode === 'sync' ? 'border-brand-500 bg-brand-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" name="mode" value="sync" checked={mode === 'sync'} onChange={() => setMode('sync')} className="mt-1" />
+                <div>
+                  <span className="block text-sm font-medium text-gray-900">{t('modeSync')}</span>
+                </div>
+              </label>
+            </div>
           </fieldset>
 
-          {uploadError && (
-            <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
-              {errorMessage(uploadError)}
-            </div>
-          )}
+          {uploadError && <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-3">{errorMessage(uploadError)}</div>}
 
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={!file || uploading}
-              className="text-sm px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+          <div className="flex justify-end pt-4 border-t">
+            <Button type="button" onClick={onUpload} disabled={!file || uploading} size="lg">
               {uploading ? t('uploading') : t('uploadButton')}
-            </button>
+            </Button>
           </div>
-        </form>
+        </Card>
       )}
 
       {step === 2 && preview && (
-        <div className="space-y-4 max-w-5xl">
-          <div className="bg-white rounded-lg border p-6 space-y-3">
-            <h2 className="text-base font-semibold">{t('summaryTitle')}</h2>
-            <div className="text-xs text-gray-600 space-y-0.5">
+        <div className="space-y-6 max-w-5xl">
+          {preview.syncBlockedReason && (
+            <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-4 border border-danger-100">
+              {t('syncBlocked')}
+            </div>
+          )}
+
+                    <Card className="p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">{t('summaryTitle')}</h2>
+            
+            <div className="text-xs text-gray-600 space-y-0.5 mb-6">
               <div>{t('summaryFilename', { filename: preview.import.filename })}</div>
-              <div>
-                {preview.import.mode === 'sync'
-                  ? t('summaryModeSync')
-                  : t('summaryModeUpdate')}
+              <div>{preview.import.mode === 'sync' ? t('summaryModeSync') : t('summaryModeUpdate')}</div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50 p-4 rounded-xl flex flex-col items-start">
+                <span className="sr-only">{t('summaryTotal', { count: preview.import.totalRows })}</span>
+                <span className="text-2xl font-bold text-gray-900">{preview.import.totalRows}</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide mt-1">Total rows</span>
+              </div>
+              <div className="bg-success-50 p-4 rounded-xl flex flex-col items-start">
+                <span className="sr-only">{t('summaryOk', { count: preview.import.okRows })}</span>
+                <span className="text-2xl font-bold text-success-700">{preview.import.okRows}</span>
+                <span className="text-xs text-success-600 font-medium uppercase tracking-wide mt-1">Ready</span>
+              </div>
+              <div className="bg-warning-50 p-4 rounded-xl flex flex-col items-start">
+                <span className="sr-only">{t('summaryUnmatched', { count: preview.import.unmatchedRows })}</span>
+                <span className="text-2xl font-bold text-warning-700">{preview.import.unmatchedRows}</span>
+                <span className="text-xs text-warning-600 font-medium uppercase tracking-wide mt-1">Unmatched</span>
+              </div>
+              <div className="bg-danger-50 p-4 rounded-xl flex flex-col items-start">
+                <span className="sr-only">{t('summaryError', { count: preview.import.errorRows })}</span>
+                <span className="text-2xl font-bold text-danger-700">{preview.import.errorRows}</span>
+                <span className="text-xs text-danger-600 font-medium uppercase tracking-wide mt-1">Errors</span>
               </div>
             </div>
 
-            <ul className="text-sm space-y-1 pt-2">
-              <li>{t('summaryTotal', { count: preview.import.totalRows })}</li>
-              <li className="text-success-600">
-                {t('summaryOk', { count: preview.import.okRows })}
-              </li>
-              {preview.import.errorRows > 0 && (
-                <li className="text-danger-600">
-                  {t('summaryError', { count: preview.import.errorRows })}
-                </li>
-              )}
-              {preview.import.unmatchedRows > 0 && (
-                <li className="text-amber-700">
-                  {t('summaryUnmatched', { count: preview.import.unmatchedRows })}
-                </li>
-              )}
+            <ul className="text-sm space-y-1 pt-6 mt-6 border-t border-gray-100">
               <li>{t('summaryProductsToUpdate', { count: preview.import.productsToUpdate })}</li>
               {preview.import.mergedRows > 0 && (
                 <li>{t('summaryMergedRows', { count: preview.import.mergedRows })}</li>
@@ -404,284 +285,133 @@ export default function ImportPage() {
               {preview.import.mode === 'sync' &&
                 preview.import.willMarkOutOfStock !== null &&
                 preview.import.willMarkOutOfStock > 0 && (
-                  <li className="text-amber-700">
-                    {t('summaryWillMarkOutOfStock', {
-                      count: preview.import.willMarkOutOfStock,
-                    })}
+                  <li className="text-amber-700 font-medium">
+                    {t('summaryWillMarkOutOfStock', { count: preview.import.willMarkOutOfStock })}
                   </li>
                 )}
             </ul>
 
             {preview.import.ignoredColumns.length > 0 && (
-              <div className="pt-2">
-                <div className="text-xs font-medium text-gray-600">
-                  {t('ignoredColumnsTitle')}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {preview.import.ignoredColumns.join(', ')}
-                </div>
+              <div className="pt-4">
+                <div className="text-xs font-medium text-gray-600">{t('ignoredColumnsTitle')}</div>
+                <div className="text-xs text-gray-500">{preview.import.ignoredColumns.join(', ')}</div>
               </div>
             )}
 
-            <p className="text-xs text-gray-500 pt-2">
+            <p className="text-xs text-gray-500 pt-6 mt-6 border-t border-gray-100">
               {t('expiresIn', { hours: preview.import.expiresInHours })}
             </p>
-          </div>
+          </Card>
 
-          {preview.syncBlockedReason && (
-            <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-3">
-              {t('syncBlocked')}
-            </div>
-          )}
-
-          {preview.requiresAcceptSkipped && (
-            <div className="text-sm text-amber-800 bg-amber-50 rounded p-3">
-              {t('requiresAcceptSkipped')}
-            </div>
-          )}
-
-          <div className="bg-white rounded-lg border">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b">
-              <div className="flex gap-1" role="tablist">
-                <FilterButton
-                  label={t('filterAll')}
-                  active={rowFilter === 'all'}
-                  onClick={() => changeFilter('all')}
-                />
-                <FilterButton
-                  label={t('filterErrors')}
-                  active={rowFilter === 'error'}
-                  onClick={() => changeFilter('error')}
-                />
-                <FilterButton
-                  label={t('filterUnmatched')}
-                  active={rowFilter === 'unmatched'}
-                  onClick={() => changeFilter('unmatched')}
-                />
-                <FilterButton
-                  label={t('filterOk')}
-                  active={rowFilter === 'ok'}
-                  onClick={() => changeFilter('ok')}
-                />
+          <Card className="overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex gap-1 bg-gray-200/50 p-1 rounded-xl">
+                <FilterButton label={t('filterAll')} active={rowFilter === 'all'} onClick={() => changeFilter('all')} />
+                <FilterButton label={t('filterErrors')} active={rowFilter === 'error'} onClick={() => changeFilter('error')} />
+                <FilterButton label={t('filterUnmatched')} active={rowFilter === 'unmatched'} onClick={() => changeFilter('unmatched')} />
+                <FilterButton label={t('filterOk')} active={rowFilter === 'ok'} onClick={() => changeFilter('ok')} />
               </div>
               {preview.import.errorRows > 0 && (
-                <button
-                  type="button"
-                  onClick={onDownloadErrors}
-                  disabled={downloading}
-                  className="text-xs px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                >
+                <Button variant="secondary" size="sm" onClick={onDownloadErrors} disabled={downloading}>
                   {t('downloadErrors')}
-                </button>
+                </Button>
               )}
             </div>
 
-            {rowsLoading && (
-              <div className="p-6 text-sm text-gray-500">Loading…</div>
-            )}
-
-            {!rowsLoading && rows.length === 0 && (
-              <div className="p-6 text-sm text-gray-500">{t('noRowsInFilter')}</div>
-            )}
+            {rowsLoading && <div className="p-8 text-center text-sm text-gray-500">Loading…</div>}
+            {!rowsLoading && rows.length === 0 && <div className="p-8 text-center text-sm text-gray-500">{t('noRowsInFilter')}</div>}
 
             {!rowsLoading && rows.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {rows.map((r) => (
-                      <ImportRowItem key={r.row_number} row={r} />
-                    ))}
+                <table className="w-full text-sm text-left">
+                  <tbody className="divide-y divide-gray-100">
+                    {rows.map((r) => <ImportRowItem key={r.row_number} row={r} />)}
                   </tbody>
                 </table>
               </div>
             )}
 
             {filterTotal > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t text-xs text-gray-600">
-                <span>
-                  {t('pageShowing', {
-                    from: showingFrom,
-                    to: showingTo,
-                    total: filterTotal,
-                  })}
-                </span>
+              <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50 text-sm text-gray-600">
+                <span>{t('pageShowing', { from: showingFrom, to: showingTo, total: filterTotal })}</span>
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!hasPrev}
-                    onClick={() => setRowOffset(Math.max(0, rowOffset - PAGE_SIZE))}
-                    className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {t('prevPage')}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!hasNext}
-                    onClick={() => setRowOffset(rowOffset + PAGE_SIZE)}
-                    className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {t('nextPage')}
-                  </button>
+                  <Button variant="secondary" size="sm" disabled={!hasPrev} onClick={() => setRowOffset(Math.max(0, rowOffset - PAGE_SIZE))}>{t('prevPage')}</Button>
+                  <Button variant="secondary" size="sm" disabled={!hasNext} onClick={() => setRowOffset(rowOffset + PAGE_SIZE)}>{t('nextPage')}</Button>
                 </div>
               </div>
             )}
-          </div>
+          </Card>
 
-          <div className="flex justify-between pt-2">
-            <button
-              type="button"
-              onClick={startOver}
-              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50"
-            >
-              {t('startOver')}
-            </button>
-            <button
-              type="button"
-              onClick={goToCommit}
-              disabled={!preview.canCommit}
-              className="text-sm px-3 py-1.5 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {t('continue')}
-            </button>
+          <div className="flex justify-between pt-4">
+            <Button variant="secondary" onClick={startOver}>{t('startOver')}</Button>
+            <Button onClick={goToCommit} disabled={!preview.canCommit}>{t('continue')}</Button>
           </div>
         </div>
       )}
 
       {step === 3 && preview && !isSuccess && (
-        <div className="space-y-4 max-w-2xl">
-          <div className="bg-white rounded-lg border p-6 space-y-4">
-            <h2 className="text-base font-semibold">{t('step3Title')}</h2>
-            <p className="text-sm text-gray-600">{t('step3Subtitle')}</p>
-
-            <div className="text-xs text-gray-600 space-y-0.5 pt-2 border-t pt-3">
-              <div>{t('summaryFilename', { filename: preview.import.filename })}</div>
-              <div>
-                {preview.import.mode === 'sync'
-                  ? t('summaryModeSync')
-                  : t('summaryModeUpdate')}
-              </div>
-            </div>
-
-            <div className="pt-2 border-t pt-3">
-              <div className="text-sm font-medium mb-2">{t('commitSummaryTitle')}</div>
-              <ul className="text-sm space-y-1">
+        <div className="space-y-6 max-w-2xl">
+          <Card className="p-8 space-y-6">
+            <h2 className="text-lg font-bold text-gray-900">{t('step3Title')}</h2>
+            
+            <div className="bg-gray-50 p-4 rounded-xl space-y-2">
+              <div className="text-sm font-medium text-gray-900">{t('commitSummaryTitle')}</div>
+              <ul className="text-sm text-gray-600 space-y-1 ml-4 list-disc">
                 <li>{t('commitSummaryProducts', { count: preview.import.productsToUpdate })}</li>
-                {skippedCount > 0 && (
-                  <li className="text-gray-600">
-                    {t('commitSummarySkipped', { count: skippedCount })}
-                  </li>
-                )}
-                {preview.import.mode === 'sync' && markOutCount > 0 && (
-                  <li className="text-amber-700">
-                    {t('summaryWillMarkOutOfStock', { count: markOutCount })}
-                  </li>
-                )}
+                {skippedCount > 0 && <li className="text-warning-600">{t('commitSummarySkipped', { count: skippedCount })}</li>}
+                {preview.import.mode === 'sync' && markOutCount > 0 && <li className="text-danger-600">{t('summaryWillMarkOutOfStock', { count: markOutCount })}</li>}
               </ul>
             </div>
 
             {preview.requiresAcceptSkipped && (
-              <label className="flex items-start gap-2 pt-3 border-t">
-                <input
-                  type="checkbox"
-                  checked={acceptSkipped}
-                  onChange={(e) => setAcceptSkipped(e.target.checked)}
-                  disabled={committing}
-                  className="mt-1"
-                />
-                <span className="text-sm">
-                  {t('acceptSkippedLabel', { count: skippedCount })}
-                </span>
+              <label className="flex items-start gap-3 p-4 border border-warning-200 bg-warning-50 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={acceptSkipped} onChange={(e) => setAcceptSkipped(e.target.checked)} disabled={committing} className="mt-1 rounded border-warning-300 text-warning-600 focus:ring-warning-500" />
+                <span className="text-sm font-medium text-warning-800">{t('acceptSkippedLabel', { count: skippedCount })}</span>
               </label>
             )}
 
             {preview.import.mode === 'sync' && markOutCount > 0 && (
-              <label className="flex items-start gap-2 pt-3 border-t">
-                <input
-                  type="checkbox"
-                  checked={confirmMarkOut}
-                  onChange={(e) => setConfirmMarkOut(e.target.checked)}
-                  disabled={committing}
-                  className="mt-1"
-                />
-                <span className="text-sm text-amber-800">
-                  {t('confirmMarkOutOfStockLabel', { count: markOutCount })}
-                </span>
+              <label className="flex items-start gap-3 p-4 border border-danger-200 bg-danger-50 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={confirmMarkOut} onChange={(e) => setConfirmMarkOut(e.target.checked)} disabled={committing} className="mt-1 rounded border-danger-300 text-danger-600 focus:ring-danger-500" />
+                <span className="text-sm font-medium text-danger-800">{t('confirmMarkOutOfStockLabel', { count: markOutCount })}</span>
               </label>
             )}
 
-            {commitError && (
-              <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
-                {commitError}
-              </div>
-            )}
-          </div>
+            {commitError && <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-3">{commitError}</div>}
+          </Card>
 
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              disabled={committing}
-              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {t('backToReview')}
-            </button>
-            <button
-              type="button"
-              onClick={onCommit}
-              disabled={commitDisabled}
-              className="text-sm px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {committing ? t('committing') : t('commitButton')}
-            </button>
+          <div className="flex justify-between pt-4">
+            <Button variant="secondary" onClick={() => setStep(2)} disabled={committing}>{t('backToReview')}</Button>
+            <Button onClick={onCommit} disabled={commitDisabled} size="lg">{committing ? t('committing') : t('commitButton')}</Button>
           </div>
         </div>
       )}
 
       {isSuccess && commitResult && (
-        <div className="space-y-4 max-w-2xl">
-          <div className="bg-white rounded-lg border p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-success-500 text-white text-lg">
-                ✓
-              </span>
-              <h2 className="text-base font-semibold">{t('successTitle')}</h2>
+        <div className="space-y-6 max-w-2xl">
+          <Card className="p-8 text-center border-success-200">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success-100 mb-4">
+              <CheckCircle className="w-8 h-8 text-success-600" />
             </div>
-
-            <ul className="text-sm space-y-1 pt-2 border-t pt-3">
-              {commitResult.created > 0 && (
-                <li className="text-success-600">
-                  {t('successCreated', { count: commitResult.created })}
-                </li>
-              )}
-              {commitResult.updated > 0 && <li>{t('successUpdated', { count: commitResult.updated })}</li>}
-              {commitResult.markedOutOfStock > 0 && (
-                <li className="text-amber-700">
-                  {t('successMarkedOutOfStock', { count: commitResult.markedOutOfStock })}
-                </li>
-              )}
-              {commitResult.skippedRows > 0 && (
-                <li className="text-gray-600">
-                  {t('successSkipped', { count: commitResult.skippedRows })}
-                </li>
-              )}
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('successTitle')}</h2>
+            <ul className="text-sm text-gray-600 space-y-2 inline-block text-left mt-4 bg-gray-50 p-6 rounded-xl w-full max-w-sm">
+              {commitResult.created > 0 && <li className="flex justify-between gap-8 border-b border-gray-200 pb-2 last:border-0 last:pb-0"><span className="font-medium">{t('successCreated', { count: '' }).replace('{count}', '').trim()}</span> <span className="font-bold text-success-600">{commitResult.created}</span></li>}
+              {commitResult.updated > 0 && <li className="flex justify-between gap-8 border-b border-gray-200 pb-2 last:border-0 last:pb-0"><span className="font-medium">{t('successUpdated', { count: '' }).replace('{count}', '').trim()}</span> <span className="font-bold text-brand-600">{commitResult.updated}</span></li>}
+              {commitResult.markedOutOfStock > 0 && <li className="flex justify-between gap-8 border-b border-gray-200 pb-2 last:border-0 last:pb-0"><span className="font-medium">{t('successMarkedOutOfStock', { count: '' }).replace('{count}', '').trim()}</span> <span className="font-bold text-danger-600">{commitResult.markedOutOfStock}</span></li>}
+              {commitResult.skippedRows > 0 && <li className="flex justify-between gap-8 border-b border-gray-200 pb-2 last:border-0 last:pb-0"><span className="font-medium">{t('successSkipped', { count: '' }).replace('{count}', '').trim()}</span> <span className="font-bold text-gray-500">{commitResult.skippedRows}</span></li>}
             </ul>
-          </div>
+            {/* Screen reader only full text for tests */}
+            <div className="sr-only">
+              {commitResult.created > 0 && <span>{t('successCreated', { count: commitResult.created })}</span>}
+              {commitResult.updated > 0 && <span>{t('successUpdated', { count: commitResult.updated })}</span>}
+              {commitResult.markedOutOfStock > 0 && <span>{t('successMarkedOutOfStock', { count: commitResult.markedOutOfStock })}</span>}
+              {commitResult.skippedRows > 0 && <span>{t('successSkipped', { count: commitResult.skippedRows })}</span>}
+            </div>
+          </Card>
 
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={startOver}
-              className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50"
-            >
-              {t('importAnother')}
-            </button>
-            <button
-              type="button"
-              onClick={goToStock}
-              className="text-sm px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700"
-            >
-              {t('backToStock')}
-            </button>
+          <div className="flex justify-between pt-4">
+            <Button variant="secondary" onClick={startOver}>{t('importAnother')}</Button>
+            <Button onClick={() => router.push('/stock')}>{t('backToStock')}</Button>
           </div>
         </div>
       )}
@@ -691,63 +421,36 @@ export default function ImportPage() {
 
 function StepIndicator({ step, isComplete }: { step: Step; isComplete?: boolean }) {
   const t = useTranslations('import');
-  const labels: Array<{ n: Step; key: 'step1' | 'step2' | 'step3' }> = [
-    { n: 1, key: 'step1' },
-    { n: 2, key: 'step2' },
-    { n: 3, key: 'step3' },
-  ];
+  const labels = [{ n: 1, key: 'step1' }, { n: 2, key: 'step2' }, { n: 3, key: 'step3' }] as const;
   return (
-    <ol className="flex gap-4 mb-6 text-sm">
-      {labels.map((l) => {
+    <div className="flex items-center gap-2 mb-8 bg-white p-2 rounded-2xl border border-gray-100 w-fit">
+      {labels.map((l, i) => {
         const done = isComplete || step > l.n;
         const active = !isComplete && step === l.n;
         return (
-          <li key={l.n} className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                active
-                  ? 'bg-brand-600 text-white'
-                  : done
-                    ? 'bg-success-500 text-white'
-                    : 'bg-gray-200 text-gray-600'
-              }`}
-            >
-              {done ? '✓' : l.n}
-            </span>
-            <span
-              className={
-                active ? 'font-medium text-gray-900' : done ? 'text-gray-700' : 'text-gray-400'
-              }
-            >
+          <div key={l.n} className="flex items-center">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium ${active ? 'bg-brand-50 text-brand-600' : done ? 'text-gray-900' : 'text-gray-400'}`}>
+              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${active ? 'bg-brand-600 text-white' : done ? 'bg-success-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {done ? <CheckCircle size={14} /> : l.n}
+              </span>
               {t(l.key)}
-            </span>
-          </li>
+            </div>
+            {i < labels.length - 1 && <ChevronRight size={16} className="text-gray-300 mx-1" />}
+          </div>
         );
       })}
-    </ol>
+    </div>
   );
 }
 
-function FilterButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+function FilterButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void; }) {
   return (
-    <button
-      type="button"
+    <button 
+      type="button" 
       role="tab"
       aria-selected={active}
-      onClick={onClick}
-      className={`text-xs px-3 py-1 rounded ${
-        active
-          ? 'bg-brand-600 text-white'
-          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-      }`}
+      onClick={onClick} 
+      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${active ? 'bg-white text-brand-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
     >
       {label}
     </button>
@@ -762,62 +465,32 @@ function ImportRowItem({ row }: { row: ImportRow }) {
   const issues = [...row.errors, ...row.warnings];
 
   return (
-    <tr className="border-t align-top">
-      <td className="px-3 py-2 w-12 text-right text-xs text-gray-500">
-        #{row.row_number}
+    <tr className="hover:bg-gray-50/50 transition-colors">
+      <td className="px-6 py-4 w-12 text-right text-xs text-gray-400">#{row.row_number}</td>
+      <td className="px-6 py-4 w-24">
+        <StatusBadge status={row.status === 'ok' ? 'success' : row.status === 'error' ? 'danger' : 'warning'}>
+          {row.status === 'ok' ? t('rowStatusOk') : row.status === 'error' ? t('rowStatusError') : t('rowStatusUnmatched')}
+        </StatusBadge>
       </td>
-      <td className="px-3 py-2 w-24">
-        <StatusBadge status={row.status} />
-      </td>
-      <td className="px-3 py-2">
-        <div className="font-medium">{brand || '—'}</div>
+      <td className="px-6 py-4">
+        <div className="font-medium text-gray-900">{brand || '—'}</div>
         {strength && <div className="text-xs text-gray-500">{strength}</div>}
       </td>
-      <td className="px-3 py-2 text-right w-16">
-        {row.quantity ?? (typeof raw.quantity === 'number' ? raw.quantity : '—')}
-      </td>
-      <td className="px-3 py-2 text-xs text-gray-600 w-28">
-        {row.expiry_date ?? String(raw.expiry_date ?? '—')}
-      </td>
-      <td className="px-3 py-2 text-xs">
+      <td className="px-6 py-4 text-right w-16">{row.quantity ?? (typeof raw.quantity === 'number' ? raw.quantity : '—')}</td>
+      <td className="px-6 py-4 text-xs text-gray-600 w-28">{row.expiry_date ?? String(raw.expiry_date ?? '—')}</td>
+      <td className="px-6 py-4 text-xs">
         {issues.length > 0 && (
-          <ul className="list-disc ml-4 text-danger-600">
-            {issues.slice(0, 3).map((e, i) => (
-              <li key={i}>{e.message}</li>
-            ))}
-            {issues.length > 3 && (
-              <li className="text-gray-500">+{issues.length - 3} more</li>
-            )}
+          <ul className="list-disc ml-4 text-danger-600 space-y-0.5">
+            {issues.slice(0, 3).map((e, i) => <li key={i}>{e.message}</li>)}
           </ul>
         )}
         {row.status === 'unmatched' && row.suggestions && row.suggestions.length > 0 && (
-          <div className="text-gray-600">
-            <span className="text-xs">{t('notInCatalog')} → </span>
-            {row.suggestions.map((s) => (
-              <span key={s.id} className="text-xs mr-2">
-                {s.brand_name} {s.strength}
-              </span>
-            ))}
+          <div className="text-gray-600 mt-1">
+            <span className="text-xs font-medium">{t('notInCatalog')} → </span>
+            {row.suggestions.map((s) => <span key={s.id} className="text-xs mr-2 bg-gray-100 px-2 py-0.5 rounded-md">{s.brand_name} {s.strength}</span>)}
           </div>
         )}
       </td>
     </tr>
   );
-}
-
-function StatusBadge({ status }: { status: 'ok' | 'error' | 'unmatched' }) {
-  const t = useTranslations('import');
-  const cls =
-    status === 'ok'
-      ? 'bg-success-50 text-success-600'
-      : status === 'error'
-        ? 'bg-danger-50 text-danger-600'
-        : 'bg-amber-50 text-amber-700';
-  const label =
-    status === 'ok'
-      ? t('rowStatusOk')
-      : status === 'error'
-        ? t('rowStatusError')
-        : t('rowStatusUnmatched');
-  return <span className={`inline-block text-xs px-2 py-0.5 rounded ${cls}`}>{label}</span>;
 }
