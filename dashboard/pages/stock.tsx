@@ -1,9 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
+import { Search, PackageOpen, Pencil, Ban, RotateCcw } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { useAuthGuard } from '@/lib/useAuthGuard';
 import { api, errorMessage } from '@/lib/api';
+import { Card } from '@/lib/ui/Card';
+import { Button } from '@/lib/ui/Button';
+import { Input } from '@/lib/ui/Input';
+import { StatusBadge } from '@/lib/ui/StatusBadge';
 
 interface InventoryItem {
   id: string;
@@ -27,19 +32,12 @@ interface InventoryResponse {
   items: InventoryItem[];
 }
 
-interface PatchResponse {
-  item: unknown;
-}
-
-interface PatchBody {
-  quantity?: number;
-  addQuantity?: number;
-  expiryDate?: string;
-}
-
+interface PatchResponse { item: unknown; }
+interface PatchBody { quantity?: number; addQuantity?: number; expiryDate?: string; }
 type DialogMode = 'markOut' | 'restore';
 
 export default function StockPage() {
+  // ============ ALL HOOKS FIRST ============
   const auth = useAuthGuard();
   const t = useTranslations('stock');
   const tCommon = useTranslations('common');
@@ -79,8 +77,10 @@ export default function StockPage() {
     );
   }, [items, search]);
 
+  // ============ GUARD ============
   if (auth.status !== 'verified') return null;
 
+  // ============ HANDLERS ============
   const startEdit = (item: InventoryItem) => {
     setEditingId(item.id);
     setEditQty(String(item.qty_on_hand));
@@ -170,21 +170,15 @@ export default function StockPage() {
 
     if (dialogMode === 'markOut') {
       setDialogBusy(true);
-      const result = await api(`/v1/pharmacy/inventory/${dialogItem.id}/out-of-stock`, {
-        method: 'PUT',
-      });
+      const result = await api(`/v1/pharmacy/inventory/${dialogItem.id}/out-of-stock`, { method: 'PUT' });
       setDialogBusy(false);
-      if (!result.ok) {
-        setDialogError(errorMessage(result.error));
-        return;
-      }
+      if (!result.ok) { setDialogError(errorMessage(result.error)); return; }
       await queryClient.invalidateQueries({ queryKey: ['stock'] });
       setDialogMode(null);
       setDialogItem(null);
       return;
     }
 
-    // restore
     const qty = Number(restoreQty);
     if (!Number.isInteger(qty) || qty <= 0) {
       setDialogError(t('invalidRestoreQty'));
@@ -212,142 +206,118 @@ export default function StockPage() {
 
   return (
     <AppShell>
-      <h1 className="text-lg font-semibold mb-4">{t('title')}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-brand-600">{t('title')}</h1>
+        <div className="w-full sm:w-72">
+          <Input
+            type="search"
+            icon={<Search size={18} />}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('search')}
+            aria-label={t('search')}
+          />
+        </div>
+      </div>
 
-      {query.isLoading && (
-        <p className="text-sm text-gray-500">{tCommon('loading')}</p>
-      )}
-
+      {query.isLoading && <p className="text-sm text-gray-500">{tCommon('loading')}</p>}
+      
       {query.data && !query.data.ok && (
-        <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-3">
+        <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-4">
           {errorMessage(query.data.error)}
         </div>
       )}
 
       {query.data?.ok && items.length === 0 && (
-        <p className="text-sm text-gray-500">{t('empty')}</p>
+        <Card className="p-12 text-center flex flex-col items-center">
+          <PackageOpen size={48} className="text-gray-300 mb-4" />
+          <p className="text-lg font-medium text-gray-900 mb-1">{t('empty')}</p>
+        </Card>
       )}
 
       {query.data?.ok && items.length > 0 && (
-        <>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('search')}
-            aria-label={t('search')}
-            className="mb-4 w-full max-w-md rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
-          />
-
-          {filtered.length === 0 ? (
-            <p className="text-sm text-gray-500">{t('noResults')}</p>
-          ) : (
-            <div className="overflow-x-auto bg-white rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left">
+        filtered.length === 0 ? (
+          <Card className="p-8 text-center text-gray-500">{t('noResults')}</Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    <th className="px-3 py-2 font-medium">{t('columns.medicine')}</th>
-                    <th className="px-3 py-2 font-medium text-right">{t('columns.qtyOnHand')}</th>
-                    <th className="px-3 py-2 font-medium text-right">{t('columns.qtyReserved')}</th>
-                    <th className="px-3 py-2 font-medium text-right">{t('available')}</th>
-                    <th className="px-3 py-2 font-medium">{t('columns.expiry')}</th>
-                    <th className="px-3 py-2 font-medium">{t('columns.updated')}</th>
-                    <th className="px-3 py-2 font-medium text-right">{t('columns.actions')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs">{t('columns.medicine')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs text-right">{t('columns.qtyOnHand')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs text-right">{t('columns.qtyReserved')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs text-right">{t('available')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs">{t('columns.expiry')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs">{t('columns.updated')}</th>
+                    <th className="px-6 py-4 font-medium text-gray-500 uppercase tracking-wider text-xs text-right">{t('columns.actions')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {filtered.map((item) => {
                     const isEditing = editingId === item.id;
                     return (
-                      <tr key={item.id} className="border-t align-top">
-                        <td className="px-3 py-2">
-                          <div className="font-medium">
+                      <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-gray-900 flex items-center gap-2">
                             {item.brand_name}
                             {item.is_out_of_stock && (
-                              <span className="ml-2 inline-block text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
-                                {t('outOfStock')}
-                              </span>
+                              <StatusBadge status="danger">{t('outOfStock')}</StatusBadge>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 mt-0.5">
                             {item.generic_name} · {item.strength} · {item.pack_size}
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        
+                        <td className="px-6 py-4 text-right">
                           {isEditing ? (
                             <input
-                              type="number"
-                              min={0}
-                              value={editQty}
-                              onChange={(e) => setEditQty(e.target.value)}
-                              disabled={saving}
-                              aria-label={t('columns.qtyOnHand')}
-                              aria-invalid={editFieldErrors.quantity ? true : undefined}
-                              className="w-20 rounded border-gray-300 text-right focus:border-brand-500 focus:ring-brand-500"
+                              type="number" min={0} value={editQty} onChange={(e) => setEditQty(e.target.value)} disabled={saving}
+                              className="w-20 rounded-lg border-gray-300 text-right text-sm focus:border-brand-500 focus:ring-brand-500"
                             />
                           ) : (
-                            item.qty_on_hand
+                            <span className="font-medium">{item.qty_on_hand}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right">{item.qty_reserved}</td>
-                        <td className="px-3 py-2 text-right font-medium">{item.available}</td>
-                        <td className="px-3 py-2">
+                        
+                        <td className="px-6 py-4 text-right text-gray-500">
+                          {item.qty_reserved}
+                        </td>
+                        
+                        <td className="px-6 py-4 text-right font-bold text-brand-600">
+                          {item.available}
+                        </td>
+                        
+                        <td className="px-6 py-4 text-gray-600">
                           {isEditing ? (
                             <input
-                              type="date"
-                              value={editExpiry}
-                              onChange={(e) => setEditExpiry(e.target.value)}
-                              disabled={saving}
-                              aria-label={t('columns.expiry')}
-                              aria-invalid={editFieldErrors.expiryDate ? true : undefined}
-                              className="rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
+                              type="date" value={editExpiry} onChange={(e) => setEditExpiry(e.target.value)} disabled={saving}
+                              className="rounded-lg border-gray-300 text-sm focus:border-brand-500 focus:ring-brand-500"
                             />
                           ) : (
                             formatDate(item.expiry_date)
                           )}
                         </td>
-                        <td className="px-3 py-2 text-xs text-gray-500">
+                        
+                        <td className="px-6 py-4 text-xs text-gray-400">
                           {formatDate(item.updated_at)}
                         </td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">
+
+                        <td className="px-6 py-4 text-right">
                           {isEditing ? (
-                            <div className="flex flex-col items-end gap-1">
+                            <div className="flex flex-col items-end gap-2">
                               <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => saveEdit(item)}
-                                  disabled={saving}
-                                  className="text-xs px-2 py-1 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
-                                >
+                                <Button size="sm" onClick={() => saveEdit(item)} disabled={saving}>
                                   {saving ? t('saving') : tCommon('save')}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEdit}
-                                  disabled={saving}
-                                  className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-                                >
+                                </Button>
+                                <Button size="sm" variant="secondary" onClick={cancelEdit} disabled={saving}>
                                   {tCommon('cancel')}
-                                </button>
+                                </Button>
                               </div>
-                              {editFieldErrors.quantity && (
-                                <span className="text-xs text-danger-600">
-                                  {editFieldErrors.quantity}
-                                </span>
-                              )}
-                              {editFieldErrors.expiryDate && (
-                                <span className="text-xs text-danger-600">
-                                  {editFieldErrors.expiryDate}
-                                </span>
-                              )}
-                              {editFieldErrors._form && (
-                                <span className="text-xs text-danger-600">
-                                  {editFieldErrors._form}
-                                </span>
-                              )}
-                              {editError && (
-                                <span className="text-xs text-danger-600 max-w-[16rem] text-right">
-                                  {editError}
+                              {(editError || editFieldErrors.quantity || editFieldErrors.expiryDate) && (
+                                <span className="text-xs text-danger-600 text-right max-w-[12rem]">
+                                  {editError || editFieldErrors.quantity || editFieldErrors.expiryDate}
                                 </span>
                               )}
                             </div>
@@ -356,27 +326,30 @@ export default function StockPage() {
                               type="button"
                               onClick={() => openRestore(item)}
                               disabled={editingId !== null}
-                              className="text-xs px-2 py-1 rounded border border-brand-500 text-brand-600 hover:bg-brand-50 disabled:opacity-50"
+                              title={t('restore')}
+                              className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-50"
                             >
-                              {t('restore')}
+                              <RotateCcw size={18} />
                             </button>
                           ) : (
-                            <div className="flex gap-2 justify-end">
+                            <div className="flex gap-1 justify-end">
                               <button
                                 type="button"
                                 onClick={() => startEdit(item)}
                                 disabled={editingId !== null}
-                                className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                                title={t('edit')}
+                                className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-50"
                               >
-                                {t('edit')}
+                                <Pencil size={18} />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openMarkOut(item)}
                                 disabled={editingId !== null}
-                                className="text-xs px-2 py-1 rounded border border-danger-500 text-danger-600 hover:bg-danger-50 disabled:opacity-50"
+                                title={t('markOut')}
+                                className="p-2 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors disabled:opacity-50"
                               >
-                                {t('markOut')}
+                                <Ban size={18} />
                               </button>
                             </div>
                           )}
@@ -387,94 +360,42 @@ export default function StockPage() {
                 </tbody>
               </table>
             </div>
-          )}
-        </>
+          </Card>
+        )
       )}
 
       {dialogMode && dialogItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeDialog();
-          }}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dialog-title"
-            className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4"
-          >
-            <h2 id="dialog-title" className="text-lg font-semibold">
-              {dialogMode === 'markOut'
-                ? t('markOutConfirmTitle')
-                : t('restoreTitle')}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-700/40 backdrop-blur-sm px-4 transition-opacity" onClick={(e) => { if (e.target === e.currentTarget) closeDialog(); }} role="presentation">
+          <div role="dialog" aria-modal="true" className="bg-white rounded-3xl shadow-float max-w-md w-full p-6 space-y-5">
+            <h2 className="text-xl font-bold text-gray-900">
+              {dialogMode === 'markOut' ? t('markOutConfirmTitle') : t('restoreTitle')}
             </h2>
-
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-gray-600">
               {dialogMode === 'markOut'
                 ? dialogItem.qty_reserved > 0
                   ? t('markOutConfirmBodyWithReserved', { count: dialogItem.qty_reserved })
                   : t('markOutConfirmBody')
                 : t('restoreBody')}
             </p>
-
             {dialogMode === 'markOut' && (
-              <p className="text-sm font-medium text-gray-800">{dialogItem.brand_name}</p>
+              <p className="text-sm font-semibold text-brand-600 bg-brand-50 p-3 rounded-xl">{dialogItem.brand_name}</p>
             )}
-
             {dialogMode === 'restore' && (
               <>
-                <p className="text-sm font-medium text-gray-800">{dialogItem.brand_name}</p>
+                <p className="text-sm font-semibold text-brand-600 bg-brand-50 p-3 rounded-xl">{dialogItem.brand_name}</p>
                 <label className="block">
-                  <span className="text-sm font-medium">{t('restoreQtyLabel')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={restoreQty}
-                    onChange={(e) => setRestoreQty(e.target.value)}
-                    disabled={dialogBusy}
-                    autoFocus
-                    className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-xs text-gray-500 mt-1 block">
-                    {t('restoreHint', { count: dialogItem.qty_reserved })}
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">{t('restoreQtyLabel')}</span>
+                  <input type="number" min={1} value={restoreQty} onChange={(e) => setRestoreQty(e.target.value)} disabled={dialogBusy} autoFocus className="mt-1 w-full rounded-xl border-gray-300 focus:border-brand-500 focus:ring-brand-500" />
+                  <span className="text-xs text-gray-500 mt-1 block">{t('restoreHint', { count: dialogItem.qty_reserved })}</span>
                 </label>
               </>
             )}
-
-            {dialogError && (
-              <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded p-2">
-                {dialogError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={closeDialog}
-                disabled={dialogBusy}
-                className="text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {tCommon('cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={confirmDialog}
-                disabled={dialogBusy}
-                className={`text-sm px-3 py-1.5 rounded text-white disabled:opacity-50 ${
-                  dialogMode === 'markOut'
-                    ? 'bg-danger-600 hover:bg-danger-500'
-                    : 'bg-brand-600 hover:bg-brand-700'
-                }`}
-              >
-                {dialogBusy
-                  ? t('dialogBusy')
-                  : dialogMode === 'markOut'
-                    ? t('markOutConfirmYes')
-                    : t('restoreConfirm')}
-              </button>
+            {dialogError && <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-3">{dialogError}</div>}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={closeDialog} disabled={dialogBusy}>{tCommon('cancel')}</Button>
+              <Button variant={dialogMode === 'markOut' ? 'danger' : 'primary'} onClick={confirmDialog} disabled={dialogBusy}>
+                {dialogBusy ? t('dialogBusy') : dialogMode === 'markOut' ? t('markOutConfirmYes') : t('restoreConfirm')}
+              </Button>
             </div>
           </div>
         </div>
@@ -484,10 +405,5 @@ export default function StockPage() {
 }
 
 function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
 }
