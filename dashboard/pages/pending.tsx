@@ -1,12 +1,15 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useTranslations } from 'next-intl';
+import { Clock, Store } from 'lucide-react';
 import { api, errorMessage, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { PageHead } from '@/components/PageHead';
+import { Card } from '@/lib/ui/Card';
+import { Button } from '@/lib/ui/Button';
+import { Input } from '@/lib/ui/Input';
 
-// Addis Ababa center. Per Step 11.1c decision D, this is pre-filled for every
-// new pharmacy. Admin confirms/corrects the exact location in Step 14.
 const DEFAULT_LAT = 9.0107;
 const DEFAULT_LNG = 38.7869;
 
@@ -17,7 +20,6 @@ export default function PendingPage() {
   const router = useRouter();
   const { pharmacy, status, logout, refetch } = useAuth();
 
-  // Defensive redirects. /pending is only valid for 'no-pharmacy' and 'pending'.
   useEffect(() => {
     if (status === 'verified') router.replace('/reservations');
     else if (status === 'suspended' || status === 'rejected') router.replace('/suspended');
@@ -26,7 +28,7 @@ export default function PendingPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface">
         <p className="text-sm text-gray-500">{tCommon('loading')}</p>
       </div>
     );
@@ -37,34 +39,36 @@ export default function PendingPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
+    <>
+      <PageHead title={t('pendingTitle')} />
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
+        <Card className="max-w-md w-full p-8 text-center space-y-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-warning-50 mb-2">
+            <Clock className="w-8 h-8 text-warning-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('pendingTitle')}</h1>
+            <p className="text-sm text-gray-600">{t('pendingBody')}</p>
+          </div>
+          {pharmacy && (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <span className="text-xs text-gray-500 uppercase tracking-wide block mb-1">Pharmacy</span>
+              <span className="text-sm font-semibold text-gray-900">{pharmacy.name}</span>
+            </div>
+          )}
+          <Button variant="secondary" onClick={logout} className="w-full">
+            {tAuth('logout')}
+          </Button>
+        </Card>
       </div>
-      <div className="max-w-md text-center space-y-4">
-        <h1 className="text-xl font-semibold">{t('pendingTitle')}</h1>
-        <p className="text-sm text-gray-600">{t('pendingBody')}</p>
-        {pharmacy && (
-          <p className="text-sm font-medium text-gray-700">{pharmacy.name}</p>
-        )}
-        <button
-          onClick={logout}
-          className="text-sm text-brand-600 hover:underline"
-        >
-          {tAuth('logout')}
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
-function CreatePharmacyForm({
-  onCreated,
-  onLogout,
-}: {
-  onCreated: () => void;
-  onLogout: () => void;
-}) {
+function CreatePharmacyForm({ onCreated, onLogout }: { onCreated: () => void; onLogout: () => void; }) {
   const t = useTranslations('createPharmacy');
   const tAuth = useTranslations('auth');
   const [name, setName] = useState('');
@@ -79,197 +83,92 @@ function CreatePharmacyForm({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setFieldErrors({});
-
+    setSubmitting(true); setError(null); setFieldErrors({});
     const result = await api('/v1/pharmacy/register', {
       method: 'POST',
-      body: {
-        name,
-        licenseNo,
-        licenseExpiresOn,
-        phone,
-        address: address.trim() === '' ? undefined : address.trim(),
-        subcity: subcity.trim() === '' ? undefined : subcity.trim(),
-        lat: DEFAULT_LAT,
-        lng: DEFAULT_LNG,
-      },
+      body: { name, licenseNo, licenseExpiresOn, phone, address: address || undefined, subcity: subcity || undefined, lat: DEFAULT_LAT, lng: DEFAULT_LNG },
     });
-
     setSubmitting(false);
-
     if (!result.ok) {
-      if (result.error.kind === 'validation') {
-        setFieldErrors(result.error.fields);
-      } else if (
-        result.error.kind === 'conflict' &&
-        result.error.code === 'LICENSE_ALREADY_REGISTERED'
-      ) {
-        setFieldErrors({ licenseNo: t('licenseInUse') });
-      } else if (
-        result.error.kind === 'conflict' &&
-        result.error.code === 'ALREADY_HAS_PHARMACY'
-      ) {
-        // User already created one in another tab — refetch will pick it up
-        onCreated();
-      } else {
-        setError(result.error);
-      }
+      if (result.error.kind === 'validation') setFieldErrors(result.error.fields);
+      else if (result.error.kind === 'conflict' && result.error.code === 'LICENSE_ALREADY_REGISTERED') setFieldErrors({ licenseNo: t('licenseInUse') });
+      else if (result.error.kind === 'conflict' && result.error.code === 'ALREADY_HAS_PHARMACY') onCreated();
+      else setError(result.error);
       return;
     }
-
     onCreated();
   };
 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
-      </div>
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-md bg-white rounded-lg shadow-sm border p-6 space-y-4"
-      >
-        <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
-          <p className="text-sm text-gray-500 mt-1">{t('subtitle')}</p>
-        </div>
-
-        {error && (
-          <div
-            role="alert"
-            className="text-sm text-danger-600 bg-danger-50 rounded p-2"
-          >
-            {errorMessage(error)}
+    <>
+      <PageHead title={t('title')} />
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-12">
+        <div className="absolute top-4 right-4"><LanguageSwitcher /></div>
+        
+        <Card className="w-full max-w-2xl p-8 space-y-6">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mb-3">
+              <Store className="w-6 h-6 text-brand-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{t('title')}</h1>
+            <p className="text-sm text-gray-500">{t('subtitle')}</p>
           </div>
-        )}
 
-        <TextField
-          label={t('name')}
-          value={name}
-          onChange={setName}
-          disabled={submitting}
-          error={fieldErrors.name}
-          required
-        />
-        <TextField
-          label={t('licenseNo')}
-          value={licenseNo}
-          onChange={setLicenseNo}
-          disabled={submitting}
-          error={fieldErrors.licenseNo}
-          required
-        />
-        <TextField
-          label={t('licenseExpiresOn')}
-          type="date"
-          value={licenseExpiresOn}
-          onChange={setLicenseExpiresOn}
-          disabled={submitting}
-          error={fieldErrors.licenseExpiresOn}
-          hint={t('licenseExpiresHint')}
-          min={today}
-          required
-        />
-        <TextField
-          label={t('phone')}
-          type="tel"
-          value={phone}
-          onChange={setPhone}
-          disabled={submitting}
-          error={fieldErrors.phone}
-          hint={t('phoneHint')}
-          required
-        />
-        <TextField
-          label={t('address')}
-          value={address}
-          onChange={setAddress}
-          disabled={submitting}
-          error={fieldErrors.address}
-        />
-        <TextField
-          label={t('subcity')}
-          value={subcity}
-          onChange={setSubcity}
-          disabled={submitting}
-          error={fieldErrors.subcity}
-        />
+          {error && <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-3 text-center">{errorMessage(error)}</div>}
 
-        <p className="text-xs text-gray-500 italic">{t('locationNote')}</p>
+          <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('name')}</span>
+              <Input value={name} onChange={(e) => setName(e.target.value)} disabled={submitting} required aria-invalid={!!fieldErrors.name} />
+              {fieldErrors.name && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.name}</span>}
+            </label>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-brand-600 text-white rounded py-2 font-medium disabled:opacity-50 hover:bg-brand-700"
-        >
-          {submitting ? t('submitting') : t('submit')}
-        </button>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('licenseNo')}</span>
+              <Input value={licenseNo} onChange={(e) => setLicenseNo(e.target.value)} disabled={submitting} required aria-invalid={!!fieldErrors.licenseNo} />
+              {fieldErrors.licenseNo && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.licenseNo}</span>}
+            </label>
 
-        <button
-          type="button"
-          onClick={onLogout}
-          className="w-full text-sm text-gray-600 hover:underline"
-        >
-          {tAuth('logout')}
-        </button>
-      </form>
-    </div>
-  );
-}
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('licenseExpiresOn')}</span>
+              <Input type="date" min={today} value={licenseExpiresOn} onChange={(e) => setLicenseExpiresOn(e.target.value)} disabled={submitting} required aria-invalid={!!fieldErrors.licenseExpiresOn} />
+              {fieldErrors.licenseExpiresOn && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.licenseExpiresOn}</span>}
+            </label>
 
-function TextField({
-  label,
-  type = 'text',
-  value,
-  onChange,
-  disabled,
-  error,
-  hint,
-  min,
-  required,
-}: {
-  label: string;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-  disabled: boolean;
-  error?: string;
-  hint?: string;
-  min?: string;
-  required?: boolean;
-}) {
-  const id = `cp-${label.replace(/\s+/g, '-').toLowerCase()}`;
-  const errId = error ? `${id}-error` : undefined;
-  const hintId = hint && !error ? `${id}-hint` : undefined;
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('phone')}</span>
+              <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={submitting} required aria-invalid={!!fieldErrors.phone} />
+              <span className="text-xs text-gray-500 mt-1 block">{t('phoneHint')}</span>
+              {fieldErrors.phone && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.phone}</span>}
+            </label>
 
-  return (
-    <label htmlFor={id} className="block">
-      <span className="text-sm font-medium">{label}</span>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        required={required}
-        min={min}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={errId ?? hintId}
-        className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
-      />
-      {error ? (
-        <span id={errId} className="text-xs text-danger-600 mt-1 block">
-          {error}
-        </span>
-      ) : hint ? (
-        <span id={hintId} className="text-xs text-gray-500 mt-1 block">
-          {hint}
-        </span>
-      ) : null}
-    </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('address')}</span>
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} disabled={submitting} aria-invalid={!!fieldErrors.address} />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('subcity')}</span>
+              <Input value={subcity} onChange={(e) => setSubcity(e.target.value)} disabled={submitting} aria-invalid={!!fieldErrors.subcity} />
+            </label>
+
+            <div className="md:col-span-2 pt-2">
+              <p className="text-xs text-gray-500 italic bg-gray-50 p-3 rounded-lg border border-gray-100">{t('locationNote')}</p>
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-3 pt-4 border-t border-gray-100">
+              <Button type="submit" disabled={submitting} size="lg" className="w-full">
+                {submitting ? t('submitting') : t('submit')}
+              </Button>
+              <Button type="button" variant="ghost" onClick={onLogout} className="w-full text-gray-500">
+                {tAuth('logout')}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    </>
   );
 }

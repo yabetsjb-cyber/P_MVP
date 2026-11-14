@@ -1,8 +1,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useTranslations } from 'next-intl';
+import { AlertTriangle, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { PageHead } from '@/components/PageHead';
+import { Card } from '@/lib/ui/Card';
+import { Button } from '@/lib/ui/Button';
 
 export default function SuspendedPage() {
   const t = useTranslations('verification');
@@ -11,59 +15,56 @@ export default function SuspendedPage() {
   const router = useRouter();
   const { pharmacy, status, logout } = useAuth();
 
-  // Defensive redirects. /suspended is only valid for suspended/rejected.
   useEffect(() => {
     if (status === 'verified') router.replace('/reservations');
-    else if (status === 'pending' || status === 'no-pharmacy')
-      router.replace('/pending');
+    else if (status === 'pending' || status === 'no-pharmacy') router.replace('/pending');
     else if (status === 'unauthenticated') router.replace('/login');
   }, [status, router]);
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface">
         <p className="text-sm text-gray-500">{tCommon('loading')}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
-      </div>
-      <div className="max-w-md w-full bg-white rounded-lg shadow-sm border p-6 space-y-4">
-        <div className="text-center space-y-2">
-          <h1 className="text-xl font-semibold text-danger-600">
-            {t('suspendedTitle')}
-          </h1>
-          {pharmacy && (
-            <p className="text-sm font-medium text-gray-700">{pharmacy.name}</p>
-          )}
-        </div>
-
-        <p className="text-sm text-gray-600">{t('suspendedBody')}</p>
-
-        {pharmacy?.status_reason && (
-          <div className="text-sm bg-gray-50 rounded p-3 border-l-2 border-danger-500">
-            <span className="font-medium block mb-1">
-              {t('suspendedReasonLabel')}
-            </span>
-            <span className="text-gray-700">{pharmacy.status_reason}</span>
+    <>
+      <PageHead title={t('suspendedTitle')} />
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-8">
+        <div className="absolute top-4 right-4"><LanguageSwitcher /></div>
+        
+        <Card className="max-w-md w-full p-8 space-y-6 border-danger-200">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-danger-50 mb-4">
+              <AlertTriangle className="w-8 h-8 text-danger-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-danger-600 mb-2">{t('suspendedTitle')}</h1>
+            {pharmacy && <p className="text-sm font-medium text-gray-900">{pharmacy.name}</p>}
           </div>
-        )}
 
-        <p className="text-xs text-gray-500 text-center">
-          {t('contactSupport')}
-        </p>
+          <p className="text-sm text-gray-600 text-center">{t('suspendedBody')}</p>
 
-        <button
-          onClick={logout}
-          className="w-full text-sm text-brand-600 hover:underline"
-        >
-          {tAuth('logout')}
-        </button>
+          {pharmacy?.status_reason && (
+            <div className="bg-danger-50 rounded-xl p-4 border border-danger-100">
+              <span className="text-xs font-bold text-danger-800 uppercase tracking-wider block mb-1">
+                {t('suspendedReasonLabel')}
+              </span>
+              <span className="text-sm text-danger-700 font-medium">{pharmacy.status_reason}</span>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 text-center bg-gray-50 p-3 rounded-lg">
+            {t('contactSupport')}
+          </p>
+
+          <Button onClick={logout} variant="secondary" className="w-full mt-2">
+            <LogOut size={16} className="mr-2" />
+            {tAuth('logout')}
+          </Button>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }

@@ -2,12 +2,15 @@ import { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslations } from 'next-intl';
-import { useQueryClient } from '@tanstack/react-query';
+import { Mail, Lock, User, Phone } from 'lucide-react';
 import { api, errorMessage, ApiError } from '@/lib/api';
-import { useAuth, type User } from '@/context/AuthContext';
-
+import { useAuth, type User as UserType } from '@/context/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-
+import { PageHead } from '@/components/PageHead';
+import { Card } from '@/lib/ui/Card';
+import { Button } from '@/lib/ui/Button';
+import { Input } from '@/lib/ui/Input';
 
 export default function RegisterPage() {
   const t = useTranslations('register');
@@ -24,8 +27,6 @@ export default function RegisterPage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Redirect authenticated users away from the register page.
-  // After successful registration, status flips to 'no-pharmacy' → /pending.
   useEffect(() => {
     if (status === 'verified') router.replace('/reservations');
     else if (status === 'pending' || status === 'no-pharmacy') router.replace('/pending');
@@ -37,7 +38,8 @@ export default function RegisterPage() {
     setSubmitting(true);
     setError(null);
     setFieldErrors({});
-    const result = await api<{ user: User }>('/v1/auth/register', {
+
+    const result = await api<{ user: UserType }>('/v1/auth/register', {
       method: 'POST',
       body: {
         email,
@@ -53,10 +55,7 @@ export default function RegisterPage() {
     if (!result.ok) {
       if (result.error.kind === 'validation') {
         setFieldErrors(result.error.fields);
-      } else if (
-        result.error.kind === 'conflict' &&
-        result.error.code === 'EMAIL_IN_USE'
-      ) {
+      } else if (result.error.kind === 'conflict' && result.error.code === 'EMAIL_IN_USE') {
         setFieldErrors({ email: t('emailInUse') });
       } else {
         setError(result.error);
@@ -64,146 +63,105 @@ export default function RegisterPage() {
       return;
     }
 
-    // Update the cache synchronously so `meQuery.data` reflects the new user
-    // immediately. This flips `status` to 'no-pharmacy' and triggers the
-    // redirect effect below without waiting for a background refetch.
     queryClient.setQueryData(['me'], result);
     refetch();
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
-      </div>
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm bg-white rounded-lg shadow-sm border p-6 space-y-4"
-      >
-        <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
-          <p className="text-sm text-gray-500 mt-1">{t('subtitle')}</p>
+    <>
+      <PageHead title={t('title')} />
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-12">
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
         </div>
-
-        {error && (
-          <div
-            role="alert"
-            className="text-sm text-danger-600 bg-danger-50 rounded p-2"
-          >
-            {errorMessage(error)}
+        
+        <Card className="w-full max-w-lg p-8 space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-brand-600 mb-2">{t('title')}</h1>
+            <p className="text-sm text-gray-500">{t('subtitle')}</p>
           </div>
-        )}
 
-        <Field
-          label={t('fullName')}
-          type="text"
-          autoComplete="name"
-          value={fullName}
-          onChange={setFullName}
-          disabled={submitting}
-          error={fieldErrors.fullName}
-          required
-        />
-        <Field
-          label={t('email')}
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={setEmail}
-          disabled={submitting}
-          error={fieldErrors.email}
-          required
-        />
-        <Field
-          label={t('password')}
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={setPassword}
-          disabled={submitting}
-          error={fieldErrors.password}
-          hint={t('passwordHint')}
-          required
-        />
-        <Field
-          label={t('phone')}
-          type="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={setPhone}
-          disabled={submitting}
-          error={fieldErrors.phone}
-          hint={t('phoneHint')}
-        />
+          {error && (
+            <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-3 text-center">
+              {errorMessage(error)}
+            </div>
+          )}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-brand-600 text-white rounded py-2 font-medium disabled:opacity-50 hover:bg-brand-700"
-        >
-          {submitting ? t('creatingAccount') : t('createAccount')}
-        </button>
+          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('fullName')}</span>
+              <Input
+                type="text"
+                icon={<User size={18} />}
+                autoComplete="name"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={submitting}
+                aria-invalid={!!fieldErrors.fullName}
+              />
+              {fieldErrors.fullName && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.fullName}</span>}
+            </label>
 
-        <p className="text-sm text-gray-600 text-center">
-          {t('haveAccount')}{' '}
-          <Link href="/login" className="text-brand-600 hover:underline">
-            {tAuth('signIn')}
-          </Link>
-        </p>
-      </form>
-    </div>
-  );
-}
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('email')}</span>
+              <Input
+                type="email"
+                icon={<Mail size={18} />}
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+                aria-invalid={!!fieldErrors.email}
+              />
+              {fieldErrors.email && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.email}</span>}
+            </label>
 
-function Field({
-  label,
-  type,
-  autoComplete,
-  value,
-  onChange,
-  disabled,
-  error,
-  hint,
-  required,
-}: {
-  label: string;
-  type: string;
-  autoComplete?: string;
-  value: string;
-  onChange: (v: string) => void;
-  disabled: boolean;
-  error?: string;
-  hint?: string;
-  required?: boolean;
-}) {
-  const id = `reg-${label.replace(/\s+/g, '-').toLowerCase()}`;
-  const errId = error ? `${id}-error` : undefined;
-  const hintId = hint && !error ? `${id}-hint` : undefined;
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('password')}</span>
+              <Input
+                type="password"
+                icon={<Lock size={18} />}
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+                aria-invalid={!!fieldErrors.password}
+              />
+              <span className="text-xs text-gray-500 mt-1 block">{t('passwordHint')}</span>
+              {fieldErrors.password && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.password}</span>}
+            </label>
 
-  return (
-    <label htmlFor={id} className="block">
-      <span className="text-sm font-medium">{label}</span>
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        required={required}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={errId ?? hintId}
-        className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
-      />
-      {error ? (
-        <span id={errId} className="text-xs text-danger-600 mt-1 block">
-          {error}
-        </span>
-      ) : hint ? (
-        <span id={hintId} className="text-xs text-gray-500 mt-1 block">
-          {hint}
-        </span>
-      ) : null}
-    </label>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('phone')}</span>
+              <Input
+                type="tel"
+                icon={<Phone size={18} />}
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={submitting}
+                aria-invalid={!!fieldErrors.phone}
+              />
+              <span className="text-xs text-gray-500 mt-1 block">{t('phoneHint')}</span>
+              {fieldErrors.phone && <span className="text-xs text-danger-600 mt-1 block">{fieldErrors.phone}</span>}
+            </label>
+
+            <Button type="submit" disabled={submitting} className="w-full mt-2" size="lg">
+              {submitting ? t('creatingAccount') : t('createAccount')}
+            </Button>
+          </form>
+
+          <p className="text-sm text-gray-600 text-center border-t border-gray-100 pt-4">
+            {t('haveAccount')}{' '}
+            <Link href="/login" className="text-brand-600 font-medium hover:underline">
+              {tAuth('signIn')}
+            </Link>
+          </p>
+        </Card>
+      </div>
+    </>
   );
 }

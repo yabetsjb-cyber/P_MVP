@@ -1,10 +1,14 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useTranslations } from 'next-intl';
+import { Mail, Lock } from 'lucide-react';
 import { api, errorMessage, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { PageHead } from '@/components/PageHead';
+import { Card } from '@/lib/ui/Card';
+import { Button } from '@/lib/ui/Button';
+import { Input } from '@/lib/ui/Input';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
@@ -41,68 +45,63 @@ export default function LoginPage() {
 
   return (
     <>
-    <PageHead title={t('loginTitle')} />
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
-      </div>
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm bg-white rounded-lg shadow-sm border p-6 space-y-4"
-      >
-        <div>
-          <h1 className="text-xl font-semibold">{t('loginTitle')}</h1>
-          <p className="text-sm text-gray-500 mt-1">{t('loginSubtitle')}</p>
+      <PageHead title={t('loginTitle')} />
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
         </div>
-
-        {error && (
-          <div
-            role="alert"
-            className="text-sm text-danger-600 bg-danger-50 rounded p-2"
-          >
-            {error.kind === 'rate_limited'
-              ? t('rateLimited', { seconds: error.retryAfter })
-              : error.kind === 'unauthorized'
-              ? t('invalidCredentials')
-              : errorMessage(error)}
+        
+        <Card className="w-full max-w-md p-8 space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-brand-600 mb-2">MedFinder</h1>
+            <p className="text-sm text-gray-500">{t('loginSubtitle')}</p>
           </div>
-        )}
 
-        <label className="block">
-          <span className="text-sm font-medium">{t('email')}</span>
-          <input
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
-            disabled={submitting}
-          />
-        </label>
+          {error && (
+            <div role="alert" className="text-sm text-danger-600 bg-danger-50 rounded-xl p-3 text-center">
+              {error.kind === 'rate_limited'
+                ? t('rateLimited', { seconds: error.retryAfter })
+                : error.kind === 'unauthorized'
+                ? t('invalidCredentials')
+                : errorMessage(error)}
+            </div>
+          )}
 
-        <label className="block">
-          <span className="text-sm font-medium">{t('password')}</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded border-gray-300 focus:border-brand-500 focus:ring-brand-500"
-            disabled={submitting}
-          />
-        </label>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('email')}</span>
+              <Input
+                type="email"
+                icon={<Mail size={18} />}
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+                placeholder="owner@pharmacy.com"
+              />
+            </label>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-brand-600 text-white rounded py-2 font-medium disabled:opacity-50 hover:bg-brand-700"
-        >
-          {submitting ? t('signingIn') : t('signIn')}
-        </button>
-      </form>
-    </div>
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 mb-1.5 block">{t('password')}</span>
+              <Input
+                type="password"
+                icon={<Lock size={18} />}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+                placeholder="••••••••"
+              />
+            </label>
+
+            <Button type="submit" disabled={submitting} className="w-full mt-2" size="lg">
+              {submitting ? t('signingIn') : t('signIn')}
+            </Button>
+          </form>
+        </Card>
+      </div>
     </>
   );
 }
