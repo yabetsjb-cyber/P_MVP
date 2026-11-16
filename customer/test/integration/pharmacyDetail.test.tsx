@@ -67,15 +67,7 @@ describe('PharmacyDetail', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('Reserve button shows the "opens in the next step" notice', async () => {
-    renderPage();
-    await openAbebaDetail();
-    const buttons = screen.getAllByRole('button', { name: /^reserve$/i });
-    await userEvent.click(buttons[0]);
-    expect(
-      await screen.findByText(/reserve flow for amoxil 500mg opens in the next step/i),
-    ).toBeInTheDocument();
-  });
+  
 
   it('shows the Rx badge for prescription-only medicines', async () => {
     renderPage();

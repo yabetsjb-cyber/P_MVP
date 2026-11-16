@@ -1,12 +1,23 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, setAuthToken } from '@/lib/api';
 
 interface Customer {
   id: string;
   email: string;
   fullName: string;
   phone: string | null;
+}
+
+interface LoginResponse {
+  token: string;
+  expiresAt: string;
+  customer: Customer;
+}
+
+interface RegisterResponse {
+  token?: string;
+  customer: Customer;
 }
 
 interface AuthContextType {
@@ -30,11 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const login = async (email: string, password: string) => {
-    const res = await api('/v1/customer/auth/login', {
+    const res = await api<LoginResponse>('/v1/customer/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, deviceName: 'Web App' }),
     });
     if (res.ok) {
+      setAuthToken(res.data.token);
       await meQuery.refetch();
       return { ok: true };
     }
@@ -42,11 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (data: any) => {
-    const res = await api('/v1/customer/auth/register', {
+    const res = await api<RegisterResponse>('/v1/customer/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
     if (res.ok) {
+      if (res.data.token) setAuthToken(res.data.token);
       await meQuery.refetch();
       return { ok: true };
     }
@@ -55,13 +68,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await api('/v1/customer/auth/logout', { method: 'POST' });
+    setAuthToken(null);
     queryClient.clear();
   };
 
-  const status = meQuery.isLoading ? 'loading' : meQuery.data?.ok ? 'authenticated' : 'unauthenticated';
+  const status = meQuery.isLoading
+    ? 'loading'
+    : meQuery.data?.ok
+    ? 'authenticated'
+    : 'unauthenticated';
 
   return (
-    <AuthContext.Provider value={{ customer: meQuery.data?.ok ? meQuery.data.data.customer : null, status, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        customer: meQuery.data?.ok ? meQuery.data.data.customer : null,
+        status,
+        login,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

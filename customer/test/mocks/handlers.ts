@@ -11,7 +11,13 @@ export const testCustomer = {
 
 /**
  * Default handlers assume "unauthenticated" — /me returns 401.
- * Tests that want a logged-in state call server.use(...) to override.
+ * Tests that want a logged-in state call server.use(...authenticatedHandlers)
+ * to override /me to return a customer.
+ *
+ * Note: the real customer API is Bearer-token-only (no cookies). Login and
+ * register return { token, expiresAt, customer }. The api client stores the
+ * token in localStorage and sends it as `Authorization: Bearer <token>` on
+ * every request.
  */
 export const handlers = [
   http.get(`${API}/v1/customer/me`, () =>
@@ -20,7 +26,11 @@ export const handlers = [
   http.post(`${API}/v1/customer/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
     if (body.email === 'buyer@example.com' && body.password === 'correct-horse-battery') {
-      return HttpResponse.json({ customer: testCustomer });
+      return HttpResponse.json({
+        token: 'cst_test_token_for_msw',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        customer: testCustomer,
+      });
     }
     return HttpResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
   }),
@@ -29,7 +39,14 @@ export const handlers = [
     if (body.email === 'taken@example.com') {
       return HttpResponse.json({ error: 'EMAIL_IN_USE' }, { status: 409 });
     }
-    return HttpResponse.json({ customer: { ...testCustomer, email: body.email } }, { status: 201 });
+    return HttpResponse.json(
+      {
+        token: 'cst_test_token_for_msw',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        customer: { ...testCustomer, email: body.email },
+      },
+      { status: 201 },
+    );
   }),
   http.post(`${API}/v1/customer/auth/logout`, () => HttpResponse.json({ ok: true })),
 ];
@@ -38,8 +55,6 @@ export const authenticatedHandlers = [
   http.get(`${API}/v1/customer/me`, () =>
     HttpResponse.json({ customer: testCustomer }),
   ),
-
-
 ];
 
 export const searchHandlers = [
@@ -144,7 +159,47 @@ export const searchHandlers = [
   }),
 ];
 
-export const allHandlers = [...handlers, ...searchHandlers];
+export const reserveHandlers = [
+  http.post(`${API}/v1/customer/reservations`, async ({ request }) => {
+    const body = (await request.json()) as {
+      inventoryId: string;
+      qty: number;
+    };
 
+    if (body.qty > 10) {
+      return HttpResponse.json(
+        { error: 'QUANTITY_UNAVAILABLE' },
+        { status: 409 },
+      );
+    }
 
+    return HttpResponse.json(
+      {
+        reservation: {
+          id: 'res-abc-123',
+          code: 'K7M2QD',
+          status: 'requested',
+          qty: body.qty,
+          respondBy: new Date(Date.now() + 20 * 60_000).toISOString(),
+          pickupBy: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+          createdAt: new Date().toISOString(),
+          medicine: {
+            brandName: 'Amoxil',
+            genericName: 'Amoxicillin',
+            strength: '500mg',
+            packSize: '16 caps',
+          },
+          pharmacy: {
+            name: 'Abeba Pharmacy',
+            address: 'Bole Road',
+            subcity: 'Bole',
+            phone: '+251911234567',
+          },
+        },
+      },
+      { status: 201 },
+    );
+  }),
+];
 
+export const allHandlers = [...handlers, ...searchHandlers, ...reserveHandlers];

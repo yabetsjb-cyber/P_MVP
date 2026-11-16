@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { X } from 'lucide-react';
 import { useGeolocation } from '@/lib/useGeolocation';
 import {
   useSearch,
   type PharmacyWithMedicines,
   type PharmacyMedicine,
+  type SearchPharmacy,
 } from '@/lib/useSearch';
 import { Layout } from '@/components/Layout';
 import { SearchBar } from '@/components/SearchBar';
 import { PharmacySheet } from '@/components/PharmacySheet';
 import { PharmacyDetail } from '@/components/PharmacyDetail';
+import { ReserveModal } from '@/components/ReserveModal';
+import { useRouter } from 'next/router';
 
 const MapView = dynamic(
   () => import('@/components/MapView').then((m) => m.MapView),
@@ -18,13 +20,17 @@ const MapView = dynamic(
 );
 
 export default function HomePage() {
+  const router = useRouter();
   const { coords, isFallback } = useGeolocation();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState(coords);
   const [viewMode, setViewMode] = useState<'results' | 'detail'>('results');
-  const [reserveNotice, setReserveNotice] = useState<string | null>(null);
+  const [reserveTarget, setReserveTarget] = useState<{
+    pharmacy: SearchPharmacy;
+    medicine: PharmacyMedicine;
+  } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 400);
@@ -35,11 +41,10 @@ export default function HomePage() {
     setMapCenter(coords);
   }, [coords.lat, coords.lng]);
 
-  // Reset to results view whenever the search query changes.
   useEffect(() => {
     setViewMode('results');
     setSelectedId(null);
-    setReserveNotice(null);
+    setReserveTarget(null);
   }, [debounced]);
 
   const search = useSearch({ query: debounced, lat: coords.lat, lng: coords.lng });
@@ -78,11 +83,9 @@ export default function HomePage() {
     return pharmacies.find((p) => p.pharmacy.pharmacyId === selectedId) ?? null;
   }, [selectedId, pharmacies]);
 
-  // If results disappear while in detail view, return to results.
   useEffect(() => {
     if (viewMode === 'detail' && !selectedPharmacy) {
       setViewMode('results');
-      setReserveNotice(null);
     }
   }, [viewMode, selectedPharmacy]);
 
@@ -107,19 +110,17 @@ export default function HomePage() {
     if (found) {
       setMapCenter({ lat: found.pharmacy.lat, lng: found.pharmacy.lng });
       setViewMode('detail');
-      setReserveNotice(null);
     }
   };
 
-  const handleBack = () => {
-    setViewMode('results');
-    setReserveNotice(null);
-  };
+  const handleBack = () => setViewMode('results');
 
   const handleReserve = (medicine: PharmacyMedicine) => {
-    setReserveNotice(
-      `Reserve flow for ${medicine.brandName} ${medicine.strength} opens in the next step.`,
-    );
+    if (!selectedPharmacy) return;
+    setReserveTarget({
+      pharmacy: selectedPharmacy.pharmacy,
+      medicine,
+    });
   };
 
   return (
@@ -165,23 +166,16 @@ export default function HomePage() {
           )
         )}
 
-        {reserveNotice && (
-          <div
-            role="status"
-            className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto"
-          >
-            <div className="bg-brand-600 text-white text-sm rounded-xl px-4 py-3 shadow-float flex items-start gap-2">
-              <span className="flex-1">{reserveNotice}</span>
-              <button
-                type="button"
-                onClick={() => setReserveNotice(null)}
-                className="text-white/70 hover:text-white shrink-0"
-                aria-label="Dismiss"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
+        {reserveTarget && (
+          <ReserveModal
+            pharmacy={reserveTarget.pharmacy}
+            medicine={reserveTarget.medicine}
+            onClose={() => setReserveTarget(null)}
+            onSuccess={() => {
+              setReserveTarget(null);
+              router.push('/reservations');
+            }}
+          />
         )}
       </div>
     </Layout>

@@ -33,5 +33,8 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   vi.clearAllMocks();
+  if (typeof window !== 'undefined') {
+    window.localStorage.clear();
+  }
 });
 afterAll(() => server.close());
