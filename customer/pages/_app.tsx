@@ -1,6 +1,7 @@
 import type { AppProps } from 'next/app';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
+import 'leaflet/dist/leaflet.css';
 import '@/styles/globals.css';
 
 const queryClient = new QueryClient({

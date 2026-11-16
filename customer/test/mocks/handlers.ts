@@ -38,4 +38,113 @@ export const authenticatedHandlers = [
   http.get(`${API}/v1/customer/me`, () =>
     HttpResponse.json({ customer: testCustomer }),
   ),
+
+
 ];
+
+export const searchHandlers = [
+  http.get(`${API}/v1/search`, ({ request }) => {
+    const url = new URL(request.url);
+    const q = url.searchParams.get('q') ?? '';
+
+    if (q === 'zzzznomatch') {
+      return HttpResponse.json({
+        query: { text: q, strength: null },
+        searchedRadiusMeters: 5000,
+        canWiden: true,
+        notice: null,
+        medicines: [],
+        unavailable: [],
+      });
+    }
+
+    if (q === 'unavailable') {
+      return HttpResponse.json({
+        query: { text: q, strength: null },
+        searchedRadiusMeters: 5000,
+        canWiden: true,
+        notice: null,
+        medicines: [],
+        unavailable: [
+          {
+            id: 'med-x',
+            brandName: 'Unavailable',
+            genericName: 'Unavailable',
+            strength: '500mg',
+          },
+        ],
+      });
+    }
+
+    if (q === 'restricted') {
+      return HttpResponse.json({
+        query: { text: q, strength: null },
+        searchedRadiusMeters: 5000,
+        canWiden: true,
+        notice: { code: 'RESTRICTED_MEDICINE', message: 'Not listed online' },
+        medicines: [],
+        unavailable: [],
+      });
+    }
+
+    return HttpResponse.json({
+      query: { text: q, strength: null },
+      searchedRadiusMeters: 5000,
+      canWiden: true,
+      notice: null,
+      medicines: [
+        {
+          id: 'med-amoxil',
+          brandName: 'Amoxil',
+          genericName: 'Amoxicillin',
+          strength: '500mg',
+          dosageForm: 'capsule',
+          packSize: '16 caps',
+          rxStatus: 'RX',
+          requiresPrescription: true,
+          moreNearby: 0,
+          pharmacies: [
+            {
+              pharmacyId: 'ph-abeba',
+              inventoryId: 'inv-1',
+              name: 'Abeba Pharmacy',
+              address: 'Bole Road',
+              subcity: 'Bole',
+              phone: '+251911234567',
+              openingHours: null,
+              lat: 9.0107,
+              lng: 38.7869,
+              distanceMeters: 320,
+              stockLevel: 'ok',
+              maxReservable: 10,
+              updatedAt: '2026-11-15T12:00:00.000Z',
+              freshness: 'updated 1h ago',
+            },
+            {
+              pharmacyId: 'ph-marta',
+              inventoryId: 'inv-2',
+              name: 'Marta Pharmacy',
+              address: 'Kazanchis',
+              subcity: 'Kirkos',
+              phone: '+251911987654',
+              openingHours: null,
+              lat: 9.02,
+              lng: 38.79,
+              distanceMeters: 1150,
+              stockLevel: 'low',
+              maxReservable: 3,
+              updatedAt: '2026-11-15T11:00:00.000Z',
+              freshness: 'updated 2h ago',
+            },
+          ],
+        },
+      ],
+      unavailable: [],
+    });
+  }),
+];
+
+export const allHandlers = [...handlers, ...searchHandlers];
+
+
+
