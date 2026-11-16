@@ -1,11 +1,7 @@
-import { MapPin, Pill, AlertCircle, Search as SearchIcon } from 'lucide-react';
-import type { SearchPharmacy } from '@/lib/useSearch';
+import { MapPin, Pill, AlertCircle, Search as SearchIcon, ChevronRight, CheckCircle2 } from 'lucide-react';
+import type { PharmacyWithMedicines } from '@/lib/useSearch';
 import type { ApiError } from '@/lib/api';
 
-export interface PharmacyWithMedicines {
-  pharmacy: SearchPharmacy;
-  medicines: Array<{ brandName: string; strength: string; packSize: string }>;
-}
 
 interface PharmacySheetProps {
   status: 'idle' | 'loading' | 'success' | 'error';

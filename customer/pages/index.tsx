@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { X } from 'lucide-react';
 import { useGeolocation } from '@/lib/useGeolocation';
-import { useSearch } from '@/lib/useSearch';
+import {
+  useSearch,
+  type PharmacyWithMedicines,
+  type PharmacyMedicine,
+} from '@/lib/useSearch';
 import { Layout } from '@/components/Layout';
 import { SearchBar } from '@/components/SearchBar';
-import { PharmacySheet, type PharmacyWithMedicines } from '@/components/PharmacySheet';
+import { PharmacySheet } from '@/components/PharmacySheet';
+import { PharmacyDetail } from '@/components/PharmacyDetail';
 
 const MapView = dynamic(
   () => import('@/components/MapView').then((m) => m.MapView),
@@ -17,6 +23,8 @@ export default function HomePage() {
   const [debounced, setDebounced] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState(coords);
+  const [viewMode, setViewMode] = useState<'results' | 'detail'>('results');
+  const [reserveNotice, setReserveNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 400);
@@ -27,6 +35,13 @@ export default function HomePage() {
     setMapCenter(coords);
   }, [coords.lat, coords.lng]);
 
+  // Reset to results view whenever the search query changes.
+  useEffect(() => {
+    setViewMode('results');
+    setSelectedId(null);
+    setReserveNotice(null);
+  }, [debounced]);
+
   const search = useSearch({ query: debounced, lat: coords.lat, lng: coords.lng });
 
   const pharmacies = useMemo<PharmacyWithMedicines[]>(() => {
@@ -34,20 +49,22 @@ export default function HomePage() {
     const byPharmacy = new Map<string, PharmacyWithMedicines>();
     for (const med of search.data.data.medicines) {
       for (const ph of med.pharmacies) {
+        const entry: PharmacyMedicine = {
+          medicineId: med.id,
+          brandName: med.brandName,
+          genericName: med.genericName,
+          strength: med.strength,
+          packSize: med.packSize,
+          requiresPrescription: med.requiresPrescription,
+          inventoryId: ph.inventoryId,
+          maxReservable: ph.maxReservable,
+          stockLevel: ph.stockLevel,
+        };
         const existing = byPharmacy.get(ph.pharmacyId);
         if (existing) {
-          existing.medicines.push({
-            brandName: med.brandName,
-            strength: med.strength,
-            packSize: med.packSize,
-          });
+          existing.medicines.push(entry);
         } else {
-          byPharmacy.set(ph.pharmacyId, {
-            pharmacy: ph,
-            medicines: [
-              { brandName: med.brandName, strength: med.strength, packSize: med.packSize },
-            ],
-          });
+          byPharmacy.set(ph.pharmacyId, { pharmacy: ph, medicines: [entry] });
         }
       }
     }
@@ -55,6 +72,19 @@ export default function HomePage() {
       (a, b) => a.pharmacy.distanceMeters - b.pharmacy.distanceMeters,
     );
   }, [search.data]);
+
+  const selectedPharmacy = useMemo(() => {
+    if (!selectedId) return null;
+    return pharmacies.find((p) => p.pharmacy.pharmacyId === selectedId) ?? null;
+  }, [selectedId, pharmacies]);
+
+  // If results disappear while in detail view, return to results.
+  useEffect(() => {
+    if (viewMode === 'detail' && !selectedPharmacy) {
+      setViewMode('results');
+      setReserveNotice(null);
+    }
+  }, [viewMode, selectedPharmacy]);
 
   const status: 'idle' | 'loading' | 'success' | 'error' =
     debounced.trim().length < 2
@@ -74,17 +104,22 @@ export default function HomePage() {
   const handleSelect = (pharmacyId: string) => {
     setSelectedId(pharmacyId);
     const found = pharmacies.find((p) => p.pharmacy.pharmacyId === pharmacyId);
-    if (found) setMapCenter({ lat: found.pharmacy.lat, lng: found.pharmacy.lng });
+    if (found) {
+      setMapCenter({ lat: found.pharmacy.lat, lng: found.pharmacy.lng });
+      setViewMode('detail');
+      setReserveNotice(null);
+    }
+  };
 
+  const handleBack = () => {
+    setViewMode('results');
+    setReserveNotice(null);
+  };
 
-    const handleSelect = (pharmacyId: string) => {
-  console.log('[handleSelect] fired for pharmacyId:', pharmacyId);
-  setSelectedId(pharmacyId);
-  const found = pharmacies.find((p) => p.pharmacy.pharmacyId === pharmacyId);
-  if (found) setMapCenter({ lat: found.pharmacy.lat, lng: found.pharmacy.lng });
-};
-
-
+  const handleReserve = (medicine: PharmacyMedicine) => {
+    setReserveNotice(
+      `Reserve flow for ${medicine.brandName} ${medicine.strength} opens in the next step.`,
+    );
   };
 
   return (
@@ -110,15 +145,44 @@ export default function HomePage() {
           </div>
         </div>
 
-        <PharmacySheet
-          status={status}
-          pharmacies={pharmacies}
-          restricted={restricted}
-          error={error}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          unavailableCount={unavailableCount}
-        />
+        {viewMode === 'results' ? (
+          <PharmacySheet
+            status={status}
+            pharmacies={pharmacies}
+            restricted={restricted}
+            error={error}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            unavailableCount={unavailableCount}
+          />
+        ) : (
+          selectedPharmacy && (
+            <PharmacyDetail
+              data={selectedPharmacy}
+              onBack={handleBack}
+              onReserve={handleReserve}
+            />
+          )
+        )}
+
+        {reserveNotice && (
+          <div
+            role="status"
+            className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto"
+          >
+            <div className="bg-brand-600 text-white text-sm rounded-xl px-4 py-3 shadow-float flex items-start gap-2">
+              <span className="flex-1">{reserveNotice}</span>
+              <button
+                type="button"
+                onClick={() => setReserveNotice(null)}
+                className="text-white/70 hover:text-white shrink-0"
+                aria-label="Dismiss"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

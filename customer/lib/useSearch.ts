@@ -52,6 +52,23 @@ interface UseSearchOptions {
   radiusM?: number;
 }
 
+export interface PharmacyMedicine {
+  medicineId: string;
+  brandName: string;
+  genericName: string;
+  strength: string;
+  packSize: string;
+  requiresPrescription: boolean;
+  inventoryId: string;
+  maxReservable: number;
+  stockLevel: 'low' | 'ok';
+}
+
+export interface PharmacyWithMedicines {
+  pharmacy: SearchPharmacy;
+  medicines: PharmacyMedicine[];
+}
+
 export function useSearch({ query, lat, lng, radiusM = 5000 }: UseSearchOptions) {
   return useQuery({
     queryKey: ['public-search', query, lat, lng, radiusM],
