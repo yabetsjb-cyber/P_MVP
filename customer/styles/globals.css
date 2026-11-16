@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-surface text-gray-900 antialiased;
+  /* Prevent bounce scroll on iOS */
+  overscroll-behavior-y: none; 
+}
